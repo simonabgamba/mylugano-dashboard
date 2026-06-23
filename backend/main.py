@@ -112,6 +112,23 @@ def serie_to_list(serie, mesi_cols, anno_filter=None):
 # ENDPOINTS
 # ─────────────────────────────────────────
 
+@app.get("/api/debug-creds")
+def debug_creds():
+    creds_b64 = os.environ.get("GOOGLE_CREDENTIALS", "")
+    if not creds_b64:
+        return {"error": "GOOGLE_CREDENTIALS not set"}
+    try:
+        decoded = base64.b64decode(creds_b64).decode()
+        data = json.loads(decoded)
+        return {
+            "type": data.get("type"),
+            "project_id": data.get("project_id"),
+            "client_email": data.get("client_email"),
+            "private_key_id": data.get("private_key_id"),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
 class ChatRequest(BaseModel):
     prompt: str
     system: str = ""
