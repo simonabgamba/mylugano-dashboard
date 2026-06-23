@@ -6,7 +6,7 @@ import {
   Legend, ResponsiveContainer
 } from "recharts";
 
-const API = "https://mylugano-dashboard-production.up.railway.app";
+const API = "https://mylugano-backend.onrender.com";
 const RED="#d42f3a", RED_L="rgba(212,47,58,0.08)", GREEN="#1fa363";
 const MUTED="#7a7a8a", BORDER="#e8e8ee", DARK="#111118", AMBER="#b45309", AMBER_L="rgba(180,83,9,0.08)";
 const YEAR_COLORS={2021:"#999",2022:"#777",2023:"#d4d4d4",2024:"#f5a5a8",2025:"#d42f3a",2026:"#7c3aed",2027:"#2563eb"};
