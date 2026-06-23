@@ -15,6 +15,7 @@ from pydantic import BaseModel
 import os
 import json
 import tempfile
+import base64
 
 app = FastAPI(title="MyLugano KPI API", version="1.0")
 
@@ -40,8 +41,9 @@ def get_credentials_file():
     local_file = os.path.join(os.path.dirname(__file__), "..", "credentials.json")
     if os.path.exists(local_file):
         return local_file
-    creds_json = os.environ.get("GOOGLE_CREDENTIALS", "")
-    if creds_json:
+    creds_b64 = os.environ.get("GOOGLE_CREDENTIALS", "")
+    if creds_b64:
+        creds_json = base64.b64decode(creds_b64).decode()
         tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
         tmp.write(creds_json)
         tmp.flush()
@@ -64,9 +66,9 @@ def parse_sheet():
     mesi_cols = headers[3:]
     result = {}
     for _, row in df.iloc[1:].iterrows():
-        kpi      = str(row[0]).strip()
+        kpi       = str(row[0]).strip()
         categoria = str(row[1]).strip()
-        dato     = str(row[2]).strip()
+        dato      = str(row[2]).strip()
         if not kpi or kpi == "KPI":
             continue
         valori = {}
@@ -175,10 +177,10 @@ def get_users(anno: Optional[int] = None):
 def get_revenue(anno: Optional[int] = None):
     try:
         data, mesi = parse_sheet()
-        incassi_tot  = get_serie(data, "Circuito", "Tutte le attività", "Totale CHF incassati")
-        cashback_tot = get_serie(data, "Circuito", "Tutte le attività", "Totale cashback in CHF emesso")
-        incassi_priv = get_serie(data, "Partner/Merchant", "Attività economiche private", "Totale CHF incassati attività economiche private")
-        cashback_priv= get_serie(data, "Partner/Merchant", "Attività economiche private", "Totale cashback in CHF emesso da attività private")
+        incassi_tot   = get_serie(data, "Circuito", "Tutte le attività", "Totale CHF incassati")
+        cashback_tot  = get_serie(data, "Circuito", "Tutte le attività", "Totale cashback in CHF emesso")
+        incassi_priv  = get_serie(data, "Partner/Merchant", "Attività economiche private", "Totale CHF incassati attività economiche private")
+        cashback_priv = get_serie(data, "Partner/Merchant", "Attività economiche private", "Totale cashback in CHF emesso da attività private")
         records = []
         for mese_str in mesi:
             m, y = mese_to_anno_mese(mese_str)
@@ -186,10 +188,10 @@ def get_revenue(anno: Optional[int] = None):
                 continue
             records.append({
                 "mese": m, "anno": y,
-                "incassi_chf":       incassi_tot.get(mese_str),
-                "cashback_chf":      cashback_tot.get(mese_str),
-                "incassi_privati":   incassi_priv.get(mese_str),
-                "cashback_privati":  cashback_priv.get(mese_str),
+                "incassi_chf":      incassi_tot.get(mese_str),
+                "cashback_chf":     cashback_tot.get(mese_str),
+                "incassi_privati":  incassi_priv.get(mese_str),
+                "cashback_privati": cashback_priv.get(mese_str),
             })
         return records
     except Exception as e:
@@ -209,9 +211,9 @@ def get_partners(anno: Optional[int] = None):
                 continue
             records.append({
                 "mese": m, "anno": y,
-                "partner_totali":  partner_tot.get(mese_str),
-                "partner_attivi":  partner_attivi.get(mese_str),
-                "circolante_chf":  circolante.get(mese_str),
+                "partner_totali": partner_tot.get(mese_str),
+                "partner_attivi": partner_attivi.get(mese_str),
+                "circolante_chf": circolante.get(mese_str),
             })
         return records
     except Exception as e:
@@ -249,9 +251,9 @@ def get_downloads(anno: Optional[int] = None):
                 continue
             records.append({
                 "mese": m, "anno": y,
-                "download_totali":   dl_tot.get(mese_str),
-                "download_ios":      dl_ios.get(mese_str),
-                "download_android":  dl_android.get(mese_str),
+                "download_totali":  dl_tot.get(mese_str),
+                "download_ios":     dl_ios.get(mese_str),
+                "download_android": dl_android.get(mese_str),
             })
         return records
     except Exception as e:
