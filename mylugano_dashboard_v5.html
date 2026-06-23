@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MyLugano KPI Dashboard 2023-2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:system-ui,-apple-system,sans-serif;background:#f7f7f9;color:#111118;min-height:100vh;padding:2rem 1.5rem 4rem}
+button{cursor:pointer;font-family:inherit;transition:all 0.15s}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:2rem;padding-bottom:1.5rem;border-bottom:1px solid #e8e8ee}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-icon{width:42px;height:42px;border-radius:10px;background:#d42f3a;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:15px}
+.logo-name{font-size:18px;font-weight:700;letter-spacing:-0.5px}
+.logo-sub{font-size:11px;color:#7a7a8a}
+.header-right{display:flex;align-items:center;gap:12px}
+.badge{font-size:11px;color:#7a7a8a;background:#fff;border:1px solid #e8e8ee;border-radius:20px;padding:5px 14px}
+.lang-toggle{display:flex;background:#fff;border:1px solid #e8e8ee;border-radius:20px;overflow:hidden}
+.lang-btn{padding:5px 14px;font-size:12px;font-weight:400;background:#fff;color:#7a7a8a;border:none;cursor:pointer}
+.lang-btn.active{background:#d42f3a;color:#fff;font-weight:600}
+.tabs{display:flex;gap:8px;margin-bottom:1.5rem}
+.tab-btn{font-size:13px;font-weight:400;padding:8px 20px;border-radius:20px;border:1px solid #e8e8ee;background:#fff;color:#7a7a8a}
+.tab-btn.active{border:1.5px solid #d42f3a;background:rgba(212,47,58,0.08);color:#d42f3a;font-weight:600}
+.summary-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:2rem}
+.sc{background:#fff;border:1px solid #e8e8ee;border-radius:14px;padding:16px 18px;position:relative;overflow:hidden}
+.sc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:#d42f3a;border-radius:14px 14px 0 0}
+.sc-label{font-size:10px;color:#7a7a8a;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:8px}
+.sc-value{font-size:22px;font-weight:700;letter-spacing:-0.5px}
+.sc-delta{font-size:11px;margin-top:4px;color:#1fa363;font-weight:500}
+.sc-prev{font-size:10px;margin-top:3px;color:#7a7a8a}
+.section-label{font-size:10px;color:#7a7a8a;text-transform:uppercase;letter-spacing:0.1em;font-weight:600;margin-bottom:14px}
+.grid2{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}
+.grid-full{grid-column:1 / -1}
+.card{background:#fff;border:1px solid #e8e8ee;border-radius:16px;padding:20px;position:relative;overflow:hidden}
+.card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:#d42f3a;border-radius:16px 16px 0 0}
+.card-title{font-size:13px;font-weight:600;color:#111118;margin-bottom:2px;margin-top:4px}
+.card-sub{font-size:11px;color:#7a7a8a;margin-bottom:16px}
+.chart-wrap{position:relative}
+.analysis{margin-top:16px;border-top:1px solid #e8e8ee;padding-top:14px}
+.headline{font-size:13px;font-weight:600;line-height:1.4;margin-bottom:6px;color:#111118}
+.impatto{font-size:12px;color:#7a7a8a;line-height:1.65;margin-bottom:12px}
+.anomalia{background:rgba(180,83,9,0.08);border:1px solid rgba(180,83,9,0.2);border-radius:10px;padding:10px 14px;margin-bottom:12px;display:flex;gap:10px;align-items:flex-start}
+.anomalia-icon{font-size:14px;flex-shrink:0}
+.anomalia-text{font-size:12px;color:#b45309;line-height:1.55;font-weight:500}
+.misure-title{font-size:9px;font-weight:700;color:#7a7a8a;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:8px}
+.misure{display:flex;flex-direction:column;gap:7px}
+.misura{display:flex;gap:10px;align-items:flex-start}
+.mnum{width:20px;height:20px;border-radius:6px;background:rgba(212,47,58,0.08);font-size:10px;font-weight:700;color:#d42f3a;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.mtext{font-size:12px;line-height:1.5;color:#111118}
+.kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px;margin-top:1rem}
+.kpi-card{background:#fff;border:1px solid #e8e8ee;border-radius:16px;padding:20px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:16px 16px 0 0}
+.kpi-card.pos::before{background:#d42f3a}
+.kpi-card.neg::before{background:#ccc}
+.kpi-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;margin-top:4px}
+.kpi-label{font-size:11px;color:#7a7a8a;text-transform:uppercase;letter-spacing:0.07em;margin-bottom:6px}
+.kpi-value{font-size:26px;font-weight:700;line-height:1;letter-spacing:-1px}
+.kpi-delta{font-size:11px;margin-top:5px;font-weight:500}
+.kpi-delta.pos{color:#1fa363}
+.kpi-delta.neg{color:#d42f3a}
+.kpi-arrow{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;flex-shrink:0}
+.kpi-arrow.pos{background:rgba(212,47,58,0.08);color:#d42f3a}
+.kpi-arrow.neg{background:rgba(150,150,150,0.1);color:#999}
+.divider{height:1px;background:#e8e8ee;margin-bottom:14px}
+footer{margin-top:2.5rem;text-align:center;font-size:11px;color:#7a7a8a;border-top:1px solid #e8e8ee;padding-top:1.5rem}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <div class="logo-icon">ML</div>
+    <div>
+      <div class="logo-name">MyLugano</div>
+      <div class="logo-sub" id="hdr-sub">KPI Dashboard &mdash; updated April 2026</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="badge">2023 &middot; 2024 &middot; 2025 &middot; 2026</div>
+    <div class="lang-toggle">
+      <button class="lang-btn active" onclick="setLang('en')">EN</button>
+      <button class="lang-btn" onclick="setLang('it')">IT</button>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" onclick="setTab('kpi')" id="tab-kpi-btn"><span class="t" data-en="KPI &amp; Analysis" data-it="KPI &amp; Analisi">KPI &amp; Analysis</span></button>
+  <button class="tab-btn" onclick="setTab('trends')" id="tab-trends-btn"><span class="t" data-en="Trends" data-it="Andamenti">Trends</span></button>
+  <button class="tab-btn" onclick="setTab('chat')" id="tab-chat-btn">&#x1F4AC; Ask the data</button>
+</div>
+
+<!-- KPI TAB -->
+<div id="tab-kpi">
+  <div class="summary-bar">
+    <div class="sc"><div class="sc-label t" data-en="Users (Apr 2026)" data-it="Utenti (apr 2026)">Users (Apr 2026)</div><div class="sc-value">58,096</div><div class="sc-delta">+9,192 &middot; +18.8%</div><div class="sc-prev t" data-en="48,904 in Apr 2025" data-it="48.904 ad apr 2025">48,904 in Apr 2025</div></div>
+    <div class="sc"><div class="sc-label t" data-en="Active Wallets" data-it="Wallet attivi">Active Wallets</div><div class="sc-value">41,326</div><div class="sc-delta">+9,922 &middot; +31.6%</div><div class="sc-prev t" data-en="31,404 in Apr 2025 &middot; 71% of users" data-it="31.404 ad apr 2025 &middot; 71% degli utenti">31,404 in Apr 2025 &middot; 71% of users</div></div>
+    <div class="sc"><div class="sc-label t" data-en="Total Partners" data-it="Partner totali">Total Partners</div><div class="sc-value">471</div><div class="sc-delta">+36 &middot; +8.3%</div><div class="sc-prev t" data-en="435 in Apr 2025 &middot; 160 active (34%)" data-it="435 ad apr 2025 &middot; 160 attivi (34%)">435 in Apr 2025 &middot; 160 active (34%)</div></div>
+    <div class="sc"><div class="sc-label t" data-en="Circulating CHF" data-it="Circolante CHF">Circulating CHF</div><div class="sc-value">669,576</div><div class="sc-delta">+50,365 &middot; +8.1%</div><div class="sc-prev t" data-en="619,211 in Apr 2025" data-it="619.211 ad apr 2025">619,211 in Apr 2025</div></div>
+  </div>
+
+  <div class="section-label t" data-en="KPI Analysis &mdash; updated April 2026" data-it="Analisi KPI &mdash; aggiornato aprile 2026">KPI Analysis &mdash; updated April 2026</div>
+
+  <div class="kpi-grid" id="kpi-cards"></div>
+</div>
+
+<!-- TRENDS TAB -->
+<div id="tab-trends" class="hidden">
+  <div class="grid2" id="charts-grid"></div>
+</div>
+
+<!-- CHAT TAB -->
+<div id="tab-chat" class="hidden">
+  <div style="max-width:720px;margin:0 auto;">
+    <div style="background:#fff;border:1px solid #e8e8ee;border-radius:16px;padding:20px;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:600;color:#111118;margin-bottom:4px;">&#x1F4AC; Ask the data</div>
+      <div style="font-size:12px;color:#7a7a8a;line-height:1.6;">Ask anything about MyLugano KPIs, trends, anomalies or recommendations. The assistant has full context of all 2023–2026 data.</div>
+      <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap;" id="suggestions"></div>
+    </div>
+    <div id="chat-messages" style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px;min-height:100px;"></div>
+    <div style="display:flex;gap:8px;align-items:flex-end;">
+      <textarea id="chat-input" placeholder="Ask a question about the data..." rows="2"
+        style="flex:1;padding:12px 14px;border:1px solid #e8e8ee;border-radius:12px;font-family:inherit;font-size:13px;resize:none;outline:none;color:#111118;background:#fff;"
+        onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();sendMessage();}"></textarea>
+      <button onclick="sendMessage()" id="send-btn"
+        style="padding:12px 20px;background:#d42f3a;color:#fff;border:none;border-radius:12px;font-size:13px;font-weight:600;flex-shrink:0;">Send</button>
+    </div>
+  </div>
+</div>
+
+<footer>MyLugano &middot; <span class="t" data-en="City of Lugano" data-it="Citt&agrave; di Lugano">City of Lugano</span> &middot; <span class="t" data-en="Data 2023&ndash;2026" data-it="Dati 2023&ndash;2026">Data 2023&ndash;2026</span></footer>
+
+<script>
+var lang = "en";
+
+var MESI = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+var RED="#d42f3a", GREEN="#1fa363", BLUE="#2563eb", PURPLE="#7c3aed", PINK="#f5a5a8", GRAY="#d4d4d4", MUTED="#7a7a8a", BORDER="#e8e8ee";
+
+// ── DATA ──────────────────────────────────────────────────
+var utentiTrend = [
+  {m:"Jan",u25:47684,u26:56768},{m:"Feb",u25:48022,u26:57092},{m:"Mar",u25:48515,u26:57570},
+  {m:"Apr",u25:48904,u26:58096},{m:"May",u25:49505},{m:"Jun",u25:50823},{m:"Jul",u25:52294},
+  {m:"Aug",u25:53277},{m:"Sep",u25:53744},{m:"Oct",u25:54282},{m:"Nov",u25:54569},{m:"Dec",u25:56481}
+];
+var walletTrend = [
+  {m:"Jan",w25:31074,w26:39884},{m:"Feb",w25:31392,w26:40251},{m:"Mar",w25:32053,w26:40766},
+  {m:"Apr",w25:31404,w26:41326},{m:"May",w25:32159},{m:"Jun",w25:33635},{m:"Jul",w25:35273},
+  {m:"Aug",w25:36335},{m:"Sep",w25:36858},{m:"Oct",w25:37442},{m:"Nov",w25:37776},{m:"Dec",w25:39536}
+];
+var incassiTrend = [
+  {m:"Jan",i24:34788,i25:39939,i26:22024},{m:"Feb",i24:33805,i25:41287,i26:25272},
+  {m:"Mar",i24:30435,i25:43580,i26:28445},{m:"Apr",i24:33291,i25:33598,i26:21467},
+  {m:"May",i24:34628,i25:48344},{m:"Jun",i24:40620,i25:58243},{m:"Jul",i24:57976,i25:56288},
+  {m:"Aug",i24:47981,i25:49296},{m:"Sep",i24:34859,i25:39618},{m:"Oct",i24:38907,i25:38652},
+  {m:"Nov",i24:34867,i25:32286},{m:"Dec",i24:85872,i25:39558}
+];
+var cashbackTrend = [
+  {m:"Jan",c24:12074,c25:15276,c26:16899},{m:"Feb",c24:12309,c25:16017,c26:20187},
+  {m:"Mar",c24:13806,c25:18954,c26:22773},{m:"Apr",c24:13303,c25:17986,c26:15879},
+  {m:"May",c24:14269,c25:22549},{m:"Jun",c24:15053,c25:24929},{m:"Jul",c24:20468,c25:23783},
+  {m:"Aug",c24:20188,c25:22014},{m:"Sep",c24:16341,c25:17412},{m:"Oct",c24:16006,c25:19201},
+  {m:"Nov",c24:16602,c25:16566},{m:"Dec",c24:23910,c25:20965}
+];
+var dlTrend = [
+  {m:"Jan",d25:43801,d26:50180},{m:"Feb",d25:44040,d26:50436},{m:"Mar",d25:44299,d26:50796},
+  {m:"Apr",d25:44516,d26:51229},{m:"May",d25:44758},{m:"Jun",d25:45446},{m:"Jul",d25:46664},
+  {m:"Aug",d25:48178},{m:"Sep",d25:48956},{m:"Oct",d25:49259},{m:"Nov",d25:49622},{m:"Dec",d25:49783}
+];
+var txTrend = [
+  {m:"Jan",t23:2177,t24:5624,t25:7564,t26:8246},{m:"Feb",t23:2151,t24:4914,t25:6978,t26:7541},
+  {m:"Mar",t23:2697,t24:4922,t25:7774,t26:8993},{m:"Apr",t23:2224,t24:5295,t25:5337,t26:7500},
+  {m:"May",t23:2844,t24:4967,t25:10681},{m:"Jun",t23:5852,t24:6350,t25:16473},
+  {m:"Jul",t23:6016,t24:7902,t25:13647},{m:"Aug",t23:6500,t24:12907,t25:13594},
+  {m:"Sep",t23:3462,t24:13286,t25:7052},{m:"Oct",t23:3793,t24:4871,t25:8722},
+  {m:"Nov",t23:3098,t24:6492,t25:7988},{m:"Dec",t24:13720,t25:8126}
+];
+var deltaData = [26.52,30.13,37.29,69.50,58.03,65.61,16.20,9.04,6.55,19.97,-0.22,-12.32];
+var profiliTrend = [
+  {m:"Jan",base:19419,verif:15959,plus:1305,analog:3201},
+  {m:"Feb",base:19985,verif:15625,plus:1407,analog:3234},
+  {m:"Mar",base:20390,verif:15645,plus:1485,analog:3246},
+  {m:"Apr",base:20925,verif:15564,plus:1582,analog:3255}
+];
+var merchantData = [
+  {name:"Mauri Concept",tx:3382},{name:"Da Lino",tx:3217},{name:"Snack Bar Piscina",tx:2343},
+  {name:"Fully Burger",tx:2077},{name:"Rist. Al Lido",tx:1984},{name:"Comm. Pizzeria",tx:1771},
+  {name:"McDonald's",tx:1731},{name:"PortoBello!",tx:1281},{name:"Il Segnalibro",tx:1147},{name:"Gabbani",tx:783}
+];
+
+// ── KPI CARDS DATA ─────────────────────────────────────────
+var kpiData = [
+  {pos:true,label:{en:"Total Users",it:"Utenti totali"},value:"58,096",delta:{en:"+18.8% vs Apr 2025",it:"+18,8% vs apr 2025"},
+   headline:{en:"Consistent growth — on track for 60K by mid-2026",it:"Crescita costante — obiettivo 60K entro met&#224; 2026"},
+   anomalia:null,
+   impatto:{en:"Users reached 58,096 in April 2026. Monthly growth pace is stable and linear.",it:"Gli utenti raggiungono 58.096 ad aprile 2026. Il ritmo di crescita mensile &#232; stabile e lineare."},
+   misure:{en:["Target 60,000 users by June 2026","Segment inactive users and re-engage","Track lifetime value by profile type"],
+           it:["Obiettivo 60.000 utenti entro giugno 2026","Segmenta utenti inattivi e riattivali","Traccia il lifetime value per tipo di profilo"]}},
+  {pos:true,label:{en:"Active Wallet Rate",it:"% Wallet attivi"},value:"71%",delta:{en:"recovering from 65% in Jan 2026",it:"in ripresa dal 65% di gen 2026"},
+   headline:{en:"Wallet rate rebounds: back above 70%",it:"Il tasso wallet rimbalza: torna sopra il 70%"},
+   anomalia:{en:"Rate dropped to 65% in January 2026 but recovered to 71% by April — the Q1 dip appears seasonal, not structural.",
+             it:"Il tasso era sceso al 65% a gennaio 2026 ma &#232; risalito al 71% ad aprile — il calo del Q1 sembra stagionale."},
+   impatto:{en:"41,326 active wallets in April. Engagement is improving alongside user growth.",it:"41.326 wallet attivi ad aprile. L'engagement migliora insieme alla crescita degli utenti."},
+   misure:{en:["Maintain onboarding flow that drove April recovery","Set 73% as next target by end of Q2","Investigate January dip to prevent recurrence"],
+           it:["Mantieni il flusso di onboarding che ha guidato la ripresa","Obiettivo 73% entro fine Q2","Indaga il calo di gennaio per prevenirlo"]}},
+  {pos:true,label:{en:"Total Partners",it:"Partner totali"},value:"471",delta:{en:"+8 vs Mar 2026",it:"+8 vs mar 2026"},
+   headline:{en:"Partners growing again — highest count ever recorded",it:"I partner crescono di nuovo — record storico"},
+   anomalia:{en:"After declining from 470 to 463 between January and March, April shows a strong recovery to 471.",
+             it:"Dopo il calo da 470 a 463 tra gennaio e marzo, aprile mostra una forte ripresa a 471."},
+   impatto:{en:"A growing network expands spending opportunities for users and signals renewed merchant interest.",it:"Una rete crescente amplia le opportunit&#224; di spesa e segnala un rinnovato interesse dei merchant."},
+   misure:{en:["Confirm April additions with onboarding data","Target 500 total partners by end of 2026","Analyze which categories new partners belong to"],
+           it:["Conferma le nuove adesioni di aprile","Obiettivo 500 partner totali entro fine 2026","Analizza le categorie dei nuovi partner"]}},
+  {pos:true,label:{en:"Circulating CHF",it:"Circolante CHF"},value:"669,576",delta:{en:"stable vs Q1 2026",it:"stabile vs Q1 2026"},
+   headline:{en:"Circulating value stable — healthy correction from Feb peak",it:"Circolante stabile — correzione sana dal picco di febbraio"},
+   anomalia:{en:"February 2026 hit CHF 677,937 — the highest ever. Gradual decline to 669,576 in April suggests temporary LVGA accumulation now being spent.",
+             it:"Febbraio 2026 ha toccato CHF 677.937 — il massimo storico. Il calo graduale a 669.576 ad aprile suggerisce un accumulo temporaneo di LVGA ora in fase di spesa."},
+   impatto:{en:"Stable circulating value with a gradual downward trend suggests users are actively spending their LVGA.",it:"Un circolante stabile con tendenza discendente indica che gli utenti stanno spendendo attivamente i loro LVGA."},
+   misure:{en:["Monitor whether downward trend continues in May","Keep circulating value above CHF 650,000","Track circulating CHF vs monthly transactions ratio"],
+           it:["Monitora se la tendenza continua a maggio","Mantieni il circolante sopra CHF 650.000","Traccia il rapporto circolante/transazioni"]}},
+  {pos:true,label:{en:"Q1+Apr 2026 Revenue",it:"Ricavi Q1+apr 2026"},value:"CHF 97,208",delta:{en:"+7.6% vs same period 2025",it:"+7,6% vs stesso periodo 2025"},
+   headline:{en:"Revenue growth continues but April slows",it:"La crescita dei ricavi continua ma aprile rallenta"},
+   anomalia:{en:"April 2026 revenue (CHF 21,467) is -36% vs April 2025 — the first month in 2026 where performance falls below both prior years.",
+             it:"I ricavi di aprile 2026 (CHF 21.467) sono -36% rispetto ad aprile 2025 — il primo mese del 2026 sotto entrambi gli anni precedenti."},
+   impatto:{en:"Q1 2026 was strong across all three months. April introduces caution.",it:"Il Q1 2026 &#232; stato forte. Aprile introduce cautela."},
+   misure:{en:["Investigate the April 2026 revenue drop","Identify top merchants by April volume","Launch a May campaign to recover momentum"],
+           it:["Indaga il calo dei ricavi di aprile 2026","Identifica i principali merchant per volume","Lancia una campagna a maggio"]}},
+  {pos:true,label:{en:"Active Partners",it:"Partner attivi"},value:"160",delta:{en:"+6 vs Mar 2026",it:"+6 vs mar 2026"},
+   headline:{en:"Active partners at highest level since mid-2025",it:"Partner attivi al livello pi&#249; alto da met&#224; 2025"},
+   anomalia:null,
+   impatto:{en:"160 active partners out of 471 total (34%). Both numbers improving but the activation gap remains a challenge.",it:"160 partner attivi su 471 totali (34%). Entrambi i numeri migliorano ma il gap di attivazione resta una sfida."},
+   misure:{en:["Push active rate above 40% by end of 2026","Run activation campaign for 311 inactive partners","Send monthly activity reports to each merchant"],
+           it:["Portare il tasso attivi sopra il 40% entro fine 2026","Campagna di attivazione per i 311 partner inattivi","Inviare report mensili di attivit&#224; a ogni merchant"]}},
+  {pos:true,label:{en:"Total Downloads",it:"Download totali"},value:"51,229",delta:{en:"+15.2% vs Apr 2025",it:"+15,2% vs apr 2025"},
+   headline:{en:"Downloads on track — Android turning positive",it:"Download in crescita — Android torna positivo"},
+   anomalia:{en:"Android downloads turned positive in April 2026 (+97 net) — first meaningful positive month after Q1 negatives.",
+             it:"I download Android sono tornati positivi ad aprile 2026 (+97 netti) — primo mese positivo dopo il Q1 negativo."},
+   impatto:{en:"iOS continues to drive growth (+336 in April). Android recovery is tentative but encouraging.",it:"iOS continua a trainare la crescita (+336 ad aprile). La ripresa Android &#232; incoraggiante."},
+   misure:{en:["Monitor Android trend in May to confirm recovery","Optimize Google Play listing","Target 80/20 iOS/Android ratio by end of 2026"],
+           it:["Monitora il trend Android a maggio","Ottimizza la scheda su Google Play","Obiettivo rapporto iOS/Android 80/20 entro fine 2026"]}},
+  {pos:false,label:{en:"Monthly Transactions",it:"Transazioni mensili"},value:"7,500",delta:{en:"+40.5% vs Apr 2025",it:"+40,5% vs apr 2025"},
+   headline:{en:"2026 transactions ahead of 2025 — strong growth confirmed",it:"Le transazioni 2026 superano il 2025 — crescita confermata"},
+   anomalia:null,
+   impatto:{en:"After correcting the 2025 data series, Q1 2026 consistently outperforms Q1 2025 across all four months.",it:"Dopo la correzione della serie 2025, il Q1 2026 supera costantemente il Q1 2025 su tutti e quattro i mesi."},
+   misure:{en:["Target 15,000 monthly transactions by summer 2026","Analyze which merchants are driving Q1 growth","Plan a summer campaign to replicate 2025 peaks"],
+           it:["Obiettivo 15.000 transazioni mensili entro estate 2026","Analizza quali merchant trainano la crescita del Q1","Pianifica una campagna estiva per replicare i picchi del 2025"]}}
+];
+
+// ── CHART CONFIGS ──────────────────────────────────────────
+var chartConfigs = [
+  {id:"c-users",title:{en:"Total Users — 2025 vs 2026",it:"Utenti totali — 2025 vs 2026"},sub:{en:"Monthly cumulative trend",it:"Trend mensile cumulativo"},
+   headline:{en:"2026 tracking ~9,000 ahead of 2025",it:"Il 2026 &#232; ~9.000 utenti avanti al 2025"},
+   anomalia:null,
+   impatto:{en:"Four months confirm the gap is stable. 60,000 users reachable by June 2026.",it:"Quattro mesi confermano che il gap &#232; stabile. 60.000 utenti raggiungibili entro giugno 2026."},
+   misure:{en:["Target 60,000 users by June 2026","Monitor net monthly additions","Verify organic vs campaign growth"],
+           it:["Obiettivo 60.000 utenti entro giugno 2026","Monitora le aggiunte mensili nette","Verifica crescita organica vs campagne"]},
+   build: function(id){ buildLineChart(id, MESI, [{label:"2025",data:utentiTrend.map(function(d){return d.u25||null;}),color:RED},{label:"2026",data:utentiTrend.map(function(d){return d.u26||null;}),color:PURPLE,dash:true}]);}},
+  {id:"c-wallet",title:{en:"Active Wallets — 2025 vs 2026",it:"Wallet attivi — 2025 vs 2026"},sub:{en:"Monthly cumulative",it:"Trend mensile cumulativo"},
+   headline:{en:"April confirms Q1 dip was seasonal",it:"Aprile conferma che il calo del Q1 era stagionale"},
+   anomalia:{en:"Both years show same seasonal pattern: Q1 softness followed by April recovery.",it:"Entrambi gli anni mostrano lo stesso schema stagionale: Q1 debole seguito da ripresa ad aprile."},
+   impatto:{en:"2026 tracking ~9,000 wallets ahead of 2025.",it:"Il 2026 &#232; ~9.000 wallet avanti al 2025."},
+   misure:{en:["Target 43,000 active wallets for Q2 2026","Monitor whether seasonal Q1 dip repeats in 2027","Use April pattern to time activation campaigns"],
+           it:["Obiettivo 43.000 wallet attivi per il Q2 2026","Monitora se il calo del Q1 si ripete nel 2027","Usa il pattern di aprile per pianificare le campagne"]},
+   build: function(id){ buildLineChart(id, MESI, [{label:"2025",data:walletTrend.map(function(d){return d.w25||null;}),color:RED},{label:"2026",data:walletTrend.map(function(d){return d.w26||null;}),color:PURPLE,dash:true}]);}},
+  {id:"c-rev",title:{en:"Monthly Revenue CHF — 2024 vs 2025 vs 2026",it:"Ricavi mensili CHF — 2024 vs 2025 vs 2026"},sub:{en:"Three-year comparison",it:"Confronto tre anni"},
+   headline:{en:"April 2026 breaks the positive Q1 trend",it:"Aprile 2026 interrompe il trend positivo del Q1"},
+   anomalia:{en:"December 2024 spike (CHF 85,872) distorts YoY comparisons. April 2026: -36% vs April 2025.",it:"Il picco di dicembre 2024 (CHF 85.872) distorce i confronti. Aprile 2026: -36% vs aprile 2025."},
+   impatto:{en:"Q1 2026 was strong. April introduces caution for H1.",it:"Il Q1 2026 &#232; stato forte. Aprile introduce cautela per il H1."},
+   misure:{en:["Investigate April 2026 revenue drop","Plan a May campaign to recover momentum","Exclude Dec 2024 from standard benchmarks"],
+           it:["Indaga il calo di aprile 2026","Pianifica una campagna a maggio","Escludi dic 2024 dai benchmark standard"]},
+   build: function(id){ buildBarChart(id, MESI, [{label:"2024",data:incassiTrend.map(function(d){return d.i24||null;}),color:PINK},{label:"2025",data:incassiTrend.map(function(d){return d.i25||null;}),color:RED},{label:"2026",data:incassiTrend.map(function(d){return d.i26||null;}),color:PURPLE}]);}},
+  {id:"c-cb",title:{en:"Cashback Issued CHF — 2024 vs 2025 vs 2026",it:"Cashback emesso CHF — 2024 vs 2025 vs 2026"},sub:{en:"Three-year comparison",it:"Confronto tre anni"},
+   headline:{en:"April cashback drops — ratio improves",it:"Il cashback di aprile cala — il rapporto migliora"},
+   anomalia:{en:"April 2026 cashback (CHF 15,879) is the lowest of the year. Cashback dropped more sharply than revenue, improving the ratio.",it:"Il cashback di aprile 2026 (CHF 15.879) &#232; il minimo dell'anno. Il cashback &#232; calato pi&#249; rapidamente dei ricavi, migliorando il rapporto."},
+   impatto:{en:"Cashback/revenue ratio self-corrected in April — a positive signal for sustainability.",it:"Il rapporto cashback/ricavi si &#232; auto-corretto ad aprile — segnale positivo per la sostenibilit&#224;."},
+   misure:{en:["Separate cashback tracking for private vs public circuit","Monitor April as a natural correction point","Set alert if ratio exceeds 50%"],
+           it:["Separa il monitoraggio cashback privato vs pubblico","Monitora aprile come punto di correzione naturale","Imposta un alert se il rapporto supera il 50%"]},
+   build: function(id){ buildBarChart(id, MESI, [{label:"2024",data:cashbackTrend.map(function(d){return d.c24||null;}),color:PINK},{label:"2025",data:cashbackTrend.map(function(d){return d.c25||null;}),color:RED},{label:"2026",data:cashbackTrend.map(function(d){return d.c26||null;}),color:PURPLE}]);}},
+  {id:"c-dl",title:{en:"Cumulative Downloads — 2025 vs 2026",it:"Download cumulativi — 2025 vs 2026"},sub:{en:"iOS + Android combined",it:"iOS + Android combinati"},
+   headline:{en:"Downloads growing — Android turning positive",it:"Download in crescita — Android torna positivo"},
+   anomalia:{en:"Android downloads turned positive in April (+97). iOS added +336. Tentative Android reversal to monitor in May.",it:"I download Android sono tornati positivi ad aprile (+97). iOS ha aggiunto +336. Ripresa Android da confermare a maggio."},
+   impatto:{en:"At current pace, 52,000 total downloads reachable by mid-2026.",it:"Al ritmo attuale, 52.000 download totali raggiungibili entro met&#224; 2026."},
+   misure:{en:["Monitor Android trend in May","Optimize Google Play listing","Target 80/20 iOS/Android by end of 2026"],
+           it:["Monitora il trend Android a maggio","Ottimizza la scheda su Google Play","Obiettivo 80/20 iOS/Android entro fine 2026"]},
+   build: function(id){ buildLineChart(id, MESI, [{label:"2025",data:dlTrend.map(function(d){return d.d25||null;}),color:RED},{label:"2026",data:dlTrend.map(function(d){return d.d26||null;}),color:PURPLE,dash:true}]);}},
+  {id:"c-tx",title:{en:"Monthly Transactions — 2023 to 2026",it:"Transazioni mensili — 2023 al 2026"},sub:{en:"Four-year comparison",it:"Confronto quattro anni"},
+   headline:{en:"Strong structural growth — 2026 ahead of 2025",it:"Forte crescita strutturale — il 2026 supera il 2025"},
+   anomalia:{en:"June 2025 peak (16,473) was the highest ever. 2026 Q1 consistently above 2025 Q1 — a positive reversal from earlier concerns.",it:"Il picco di giugno 2025 (16.473) &#232; il massimo storico. Il Q1 2026 supera costantemente il Q1 2025."},
+   impatto:{en:"From ~2,000-3,000 transactions in 2023 to 16,000+ peaks in 2025 — clear upward structural trend.",it:"Da ~2.000-3.000 transazioni nel 2023 ai picchi di 16.000+ nel 2025 — chiara tendenza strutturale al rialzo."},
+   misure:{en:["Target 15,000 monthly transactions by summer 2026","Identify merchants driving Q1 2026 growth","Plan summer campaign to replicate 2025 peaks"],
+           it:["Obiettivo 15.000 transazioni mensili entro estate 2026","Identifica i merchant che trainano il Q1 2026","Pianifica una campagna estiva per replicare i picchi del 2025"]},
+   build: function(id){ buildBarChart(id, MESI, [{label:"2023",data:txTrend.map(function(d){return d.t23||null;}),color:GRAY},{label:"2024",data:txTrend.map(function(d){return d.t24||null;}),color:PINK},{label:"2025",data:txTrend.map(function(d){return d.t25||null;}),color:RED},{label:"2026",data:txTrend.map(function(d){return d.t26||null;}),color:PURPLE}]);}},
+  {id:"c-prof",title:{en:"User Profiles — 2026",it:"Profili utenti — 2026"},sub:{en:"Jan-Apr 2026 composition",it:"Composizione gen-apr 2026"},full:true,
+   headline:{en:"Base growing fast, Verified declining, Plus accelerating",it:"Base in forte crescita, Verificato in calo, Plus accelera"},
+   anomalia:{en:"Verified profiles dropped from 15,959 (Jan) to 15,564 (Apr) — 395 fewer in 4 months. Users enter as Base and are not upgrading.",it:"I profili Verificati sono scesi da 15.959 (gen) a 15.564 (apr) — 395 in meno in 4 mesi. Gli utenti entrano come Base e non effettuano l'upgrade."},
+   impatto:{en:"Plus profile growing consistently (+277 in 4 months) — strongest monetization signal of 2026.",it:"Il profilo Plus cresce in modo consistente (+277 in 4 mesi) — il segnale di monetizzazione pi&#249; forte del 2026."},
+   misure:{en:["Introduce verification incentive tied to cashback uplift","Track Base-to-Verified conversion rate monthly","Target 2,000 Plus profiles by end of 2026"],
+           it:["Introduci un incentivo alla verifica legato al cashback","Traccia mensilmente il tasso Base-Verificato","Obiettivo 2.000 profili Plus entro fine 2026"]},
+   build: function(id){ buildStackedBarChart(id, profiliTrend.map(function(d){return d.m;}), [{label:"Base",data:profiliTrend.map(function(d){return d.base;}),color:RED},{label:"Verified",data:profiliTrend.map(function(d){return d.verif;}),color:BLUE},{label:"Plus",data:profiliTrend.map(function(d){return d.plus;}),color:"#1fa363"},{label:"Analogue",data:profiliTrend.map(function(d){return d.analog;}),color:GRAY}]);}},
+  {id:"c-merch",title:{en:"Top 10 Merchants by Transactions",it:"Top 10 merchant per transazioni"},sub:{en:"Full year 2025",it:"Anno intero 2025"},full:true,
+   headline:{en:"High concentration: top 3 = 45% of all transactions",it:"Alta concentrazione: i top 3 = 45% di tutte le transazioni"},
+   anomalia:{en:"Mauri Concept + Da Lino = 6,599 transactions. If either exits, total volume drops ~15% overnight.",it:"Mauri Concept + Da Lino = 6.599 transazioni. Se uno dei due esce, il volume totale cala ~15% in un colpo solo."},
+   impatto:{en:"Long tail is very weak. The circuit needs more mid-range merchants (500-1,500 tx).",it:"La coda lunga &#232; molto debole. Il circuito ha bisogno di pi&#249; merchant nella fascia media (500-1.500 tx)."},
+   misure:{en:["Lock in top 3 with multi-year agreements","Support 200-500 tx merchants with training","Diversify: incentivise health, culture, sport categories"],
+           it:["Fidelizza i top 3 con accordi pluriennali","Supporta i merchant 200-500 tx con formazione","Diversifica: incentiva categorie salute, cultura, sport"]},
+   build: function(id){ buildHorizontalBarChart(id, merchantData.map(function(d){return d.name;}), merchantData.map(function(d){return d.tx;}));}},
+  {id:"c-delta",title:{en:"Cashback Delta % — 2024 vs 2025",it:"Delta % cashback — 2024 vs 2025"},sub:{en:"Monthly variation",it:"Variazione mensile"},
+   headline:{en:"Explosive Q2 growth, Q4 reversal",it:"Crescita esplosiva nel Q2, inversione nel Q4"},
+   anomalia:{en:"April delta (+69.5%) is inflated by a weak April 2024 baseline — not by exceptional 2025 performance.",it:"Il delta di aprile (+69,5%) &#232; gonfiato da una base 2024 debole — non da una performance eccezionale del 2025."},
+   impatto:{en:"Central months show extraordinary deltas. Autumn slowdown partly reflects a stronger 2024 base.",it:"I mesi centrali mostrano delta straordinari. Il rallentamento autunnale riflette in parte una base 2024 pi&#249; forte."},
+   misure:{en:["Calculate delta on 3-month rolling average","Add cashback incentives in negative delta months","Set minimum annual delta target formally"],
+           it:["Calcola il delta su media mobile a 3 mesi","Aggiungi incentivi cashback nei mesi con delta negativo","Definisci formalmente un target minimo di delta annuo"]},
+   build: function(id){ buildDeltaChart(id);}}
+];
+
+// ── CHART BUILDERS ─────────────────────────────────────────
+var chartInstances = {};
+
+function buildLineChart(id, labels, datasets) {
+  var ctx = document.getElementById(id);
+  if (!ctx) return;
+  if (chartInstances[id]) { chartInstances[id].destroy(); }
+  chartInstances[id] = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: labels,
+      datasets: datasets.map(function(ds) {
+        return {
+          label: ds.label,
+          data: ds.data,
+          borderColor: ds.color,
+          backgroundColor: "transparent",
+          borderWidth: 2,
+          borderDash: ds.dash ? [4,2] : [],
+          pointRadius: 3,
+          pointBackgroundColor: ds.color,
+          spanGaps: false,
+          tension: 0.3
+        };
+      })
+    },
+    options: { responsive:true, plugins:{legend:{position:"bottom",labels:{font:{size:11},boxWidth:12}}}, scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:BORDER},ticks:{font:{size:10}}}}}
+  });
+}
+
+function buildBarChart(id, labels, datasets) {
+  var ctx = document.getElementById(id);
+  if (!ctx) return;
+  if (chartInstances[id]) { chartInstances[id].destroy(); }
+  chartInstances[id] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: datasets.map(function(ds) {
+        return { label: ds.label, data: ds.data, backgroundColor: ds.color, borderRadius: 3 };
+      })
+    },
+    options: { responsive:true, plugins:{legend:{position:"bottom",labels:{font:{size:11},boxWidth:12}}}, scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:BORDER},ticks:{font:{size:10}}}}}
+  });
+}
+
+function buildStackedBarChart(id, labels, datasets) {
+  var ctx = document.getElementById(id);
+  if (!ctx) return;
+  if (chartInstances[id]) { chartInstances[id].destroy(); }
+  chartInstances[id] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: datasets.map(function(ds) {
+        return { label: ds.label, data: ds.data, backgroundColor: ds.color, borderRadius: 0 };
+      })
+    },
+    options: { responsive:true, plugins:{legend:{position:"bottom",labels:{font:{size:11},boxWidth:12}}}, scales:{x:{stacked:true,grid:{display:false},ticks:{font:{size:10}}},y:{stacked:true,grid:{color:BORDER},ticks:{font:{size:10}}}}}
+  });
+}
+
+function buildHorizontalBarChart(id, labels, data) {
+  var ctx = document.getElementById(id);
+  if (!ctx) return;
+  if (chartInstances[id]) { chartInstances[id].destroy(); }
+  chartInstances[id] = new Chart(ctx, {
+    type: "bar",
+    data: { labels: labels, datasets: [{ label: "Transactions", data: data, backgroundColor: RED, borderRadius: 3 }] },
+    options: { indexAxis:"y", responsive:true, plugins:{legend:{display:false}}, scales:{x:{grid:{color:BORDER},ticks:{font:{size:10}}},y:{grid:{display:false},ticks:{font:{size:10}}}}}
+  });
+}
+
+function buildDeltaChart(id) {
+  var ctx = document.getElementById(id);
+  if (!ctx) return;
+  if (chartInstances[id]) { chartInstances[id].destroy(); }
+  chartInstances[id] = new Chart(ctx, {
+    type: "bar",
+    data: {
+      labels: MESI,
+      datasets: [{ label: "Delta %", data: deltaData, backgroundColor: deltaData.map(function(v){return v>=0?GREEN:RED;}), borderRadius: 3 }]
+    },
+    options: { responsive:true, plugins:{legend:{display:false}}, scales:{x:{grid:{display:false},ticks:{font:{size:10}}},y:{grid:{color:BORDER},ticks:{font:{size:10},callback:function(v){return v+"%";}}}}}
+  });
+}
+
+// ── RENDER FUNCTIONS ───────────────────────────────────────
+function renderKPI() {
+  var grid = document.getElementById("kpi-cards");
+  grid.innerHTML = "";
+  kpiData.forEach(function(k) {
+    var div = document.createElement("div");
+    div.className = "kpi-card " + (k.pos ? "pos" : "neg");
+    var anomHTML = k.anomalia ? '<div class="anomalia"><div class="anomalia-icon">&#9888;</div><div class="anomalia-text">' + k.anomalia[lang] + '</div></div>' : "";
+    var misureHTML = k.misure[lang].map(function(m, j) {
+      return '<div class="misura"><div class="mnum">' + (j+1) + '</div><div class="mtext">' + m + '</div></div>';
+    }).join("");
+    div.innerHTML =
+      '<div class="kpi-top">' +
+        '<div>' +
+          '<div class="kpi-label">' + k.label[lang] + '</div>' +
+          '<div class="kpi-value">' + k.value + '</div>' +
+          '<div class="kpi-delta ' + (k.pos?"pos":"neg") + '">' + k.delta[lang] + '</div>' +
+        '</div>' +
+        '<div class="kpi-arrow ' + (k.pos?"pos":"neg") + '">' + (k.pos?"&#8593;":"&#8595;") + '</div>' +
+      '</div>' +
+      '<div class="divider"></div>' +
+      '<div class="headline">' + k.headline[lang] + '</div>' +
+      '<div class="impatto">' + k.impatto[lang] + '</div>' +
+      anomHTML +
+      '<div class="misure-title">' + (lang==="en"?"3 key actions":"3 misure chiave") + '</div>' +
+      '<div class="misure">' + misureHTML + '</div>';
+    grid.appendChild(div);
+  });
+}
+
+function renderCharts() {
+  var grid = document.getElementById("charts-grid");
+  grid.innerHTML = "";
+  chartInstances = {};
+  chartConfigs.forEach(function(cfg) {
+    var wrap = document.createElement("div");
+    wrap.className = "card" + (cfg.full ? " grid-full" : "");
+    var anomHTML = cfg.anomalia ? '<div class="anomalia"><div class="anomalia-icon">&#9888;</div><div class="anomalia-text">' + cfg.anomalia[lang] + '</div></div>' : "";
+    var misureHTML = cfg.misure[lang].map(function(m, j) {
+      return '<div class="misura"><div class="mnum">' + (j+1) + '</div><div class="mtext">' + m + '</div></div>';
+    }).join("");
+    var h = cfg.full ? 320 : 220;
+    wrap.innerHTML =
+      '<div class="card-title">' + cfg.title[lang] + '</div>' +
+      '<div class="card-sub">' + cfg.sub[lang] + '</div>' +
+      '<div class="chart-wrap"><canvas id="' + cfg.id + '" height="' + h + '"></canvas></div>' +
+      '<div class="analysis">' +
+        '<div class="headline">' + cfg.headline[lang] + '</div>' +
+        '<div class="impatto">' + cfg.impatto[lang] + '</div>' +
+        anomHTML +
+        '<div class="misure-title">' + (lang==="en"?"3 key actions":"3 misure chiave") + '</div>' +
+        '<div class="misure">' + misureHTML + '</div>' +
+      '</div>';
+    grid.appendChild(wrap);
+  });
+  setTimeout(function() {
+    chartConfigs.forEach(function(cfg) { cfg.build(cfg.id); });
+  }, 50);
+}
+
+// ── TAB & LANG SWITCHERS ───────────────────────────────────
+var currentTab = "kpi";
+
+// ── CHATBOT ────────────────────────────────────────────────
+var chatHistory = [];
+
+var SYSTEM_PROMPT = "You are a data analyst assistant for MyLugano, the digital wallet and cashback platform of the City of Lugano, Switzerland. You have full knowledge of the following KPI data:\n\nUSERS: 2025 full year (Jan 47,684 to Dec 56,481). 2026 Jan-Apr: 56,768 / 57,092 / 57,570 / 58,096. Growth +18.8% YoY Apr.\n\nACTIVE WALLETS: 2025 Jan 31,074 to Dec 39,536 (+21.4% YoY). 2026 Jan-Apr: 39,884 / 40,251 / 40,766 / 41,326. Active wallet rate: 70% end 2025, dipped to 65% Jan 2026, recovered to 71% Apr 2026.\n\nPARTNERS: Total 471 (Apr 2026), Active 160 (34%). Was 458 total / 162 active end 2025.\n\nCIRCULATING CHF: 669,576 (Apr 2026). Peak 677,937 Feb 2026. End 2025: 615,680.\n\nREVENUE (total circuit CHF): 2024 full year 520,691. 2025 Q1: Jan 39,939 / Feb 41,287 / Mar 43,580. 2026 Q1+Apr: Jan 22,024 / Feb 25,272 / Mar 28,445 / Apr 21,467. Note: Apr 2026 is -36% vs Apr 2025.\n\nCASHBACK ISSUED CHF: 2025 total 235,651. 2026 Jan-Apr: 16,899 / 20,187 / 22,773 / 15,879. Cashback/revenue ratio was 38% in 2024, rose to 44% in 2025.\n\nDOWNLOADS: Total 51,229 (Apr 2026). 85% iOS, 15% Android. Android downloads were negative Jan-Mar 2026, turned positive Apr (+97).\n\nTRANSACTIONS (corrected series): 2023: Jan 2,177 to peak Aug 6,500. 2024: peaks Sep 13,286 and Dec 13,720. 2025: peak Jun 16,473. 2026 Q1+Apr: 8,246 / 7,541 / 8,993 / 7,500 — all above same months in 2025.\n\nTOP MERCHANTS 2025: Mauri Concept 3,382 tx, Da Lino 3,217, Snack Bar Piscina 2,343, Fully Burger 2,077, Rist. Al Lido 1,984.\n\nUSER PROFILES (Apr 2026): Base 20,925, Verified 15,564 (declining), Plus 1,582 (growing fast), Analogue 3,255.\n\nAnswer questions clearly and concisely. Use numbers from the data above. If asked for recommendations, base them on the data. You can answer in English or Italian depending on the question language. Keep answers focused and under 200 words unless a detailed breakdown is requested.";
+
+var suggestions_en = [
+  "What is the trend for active wallets?",
+  "Why did April 2026 revenue drop?",
+  "Which merchants are most at risk?",
+  "What are the top 3 priorities for Q2 2026?"
+];
+var suggestions_it = [
+  "Qual e il trend dei wallet attivi?",
+  "Perche i ricavi di aprile 2026 sono calati?",
+  "Quali merchant sono a maggior rischio?",
+  "Quali sono le 3 priorita per il Q2 2026?"
+];
+
+function renderSuggestions() {
+  var el = document.getElementById("suggestions");
+  if (!el) return;
+  el.innerHTML = "";
+  var suggs = lang === "it" ? suggestions_it : suggestions_en;
+  suggs.forEach(function(s) {
+    var btn = document.createElement("button");
+    btn.textContent = s;
+    btn.style.cssText = "font-size:11px;padding:5px 12px;border-radius:20px;border:1px solid #e8e8ee;background:#f7f7f9;color:#7a7a8a;cursor:pointer;font-family:inherit;";
+    btn.onclick = function() { document.getElementById("chat-input").value = s; sendMessage(); };
+    el.appendChild(btn);
+  });
+}
+
+function addMessage(role, text) {
+  var el = document.getElementById("chat-messages");
+  var div = document.createElement("div");
+  var isUser = role === "user";
+  div.style.cssText = "display:flex;justify-content:" + (isUser?"flex-end":"flex-start") + ";";
+  var bubble = document.createElement("div");
+  bubble.style.cssText = "max-width:85%;padding:12px 16px;border-radius:" + (isUser?"16px 16px 4px 16px":"16px 16px 16px 4px") + ";font-size:13px;line-height:1.6;white-space:pre-wrap;" +
+    (isUser ? "background:#d42f3a;color:#fff;" : "background:#fff;border:1px solid #e8e8ee;color:#111118;");
+  bubble.textContent = text;
+  div.appendChild(bubble);
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+  return bubble;
+}
+
+async function sendMessage() {
+  var input = document.getElementById("chat-input");
+  var msg = input.value.trim();
+  if (!msg) return;
+  input.value = "";
+  document.getElementById("send-btn").disabled = true;
+
+  addMessage("user", msg);
+  chatHistory.push({role:"user", content:msg});
+
+  var typingBubble = addMessage("assistant", "...");
+
+  try {
+    var res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        model: "claude-sonnet-4-20250514",
+        max_tokens: 1000,
+        system: SYSTEM_PROMPT,
+        messages: chatHistory
+      })
+    });
+    var data = await res.json();
+    var reply = data.content && data.content[0] ? data.content[0].text : "Sorry, I could not get a response.";
+    typingBubble.textContent = reply;
+    chatHistory.push({role:"assistant", content:reply});
+  } catch(e) {
+    typingBubble.textContent = "Error connecting to the assistant. Please try again.";
+    typingBubble.style.color = "#b45309";
+  }
+  document.getElementById("send-btn").disabled = false;
+}
+
+function setTab(tab) {
+  currentTab = tab;
+  document.getElementById("tab-kpi").className = tab === "kpi" ? "" : "hidden";
+  document.getElementById("tab-trends").className = tab === "trends" ? "" : "hidden";
+  document.getElementById("tab-chat").className = tab === "chat" ? "" : "hidden";
+  document.getElementById("tab-kpi-btn").className = "tab-btn" + (tab==="kpi"?" active":"");
+  document.getElementById("tab-trends-btn").className = "tab-btn" + (tab==="trends"?" active":"");
+  document.getElementById("tab-chat-btn").className = "tab-btn" + (tab==="chat"?" active":"");
+  if (tab === "trends") renderCharts();
+  if (tab === "chat") renderSuggestions();
+}
+
+function setLang(l) {
+  lang = l;
+  document.querySelectorAll(".lang-btn").forEach(function(btn) {
+    btn.className = "lang-btn" + (btn.textContent.toLowerCase()===l?" active":"");
+  });
+  document.querySelectorAll(".t").forEach(function(el) {
+    el.innerHTML = el.getAttribute("data-" + l) || el.innerHTML;
+  });
+  document.getElementById("hdr-sub").textContent = l==="en" ? "KPI Dashboard \u2014 updated April 2026" : "Dashboard KPI \u2014 aggiornato aprile 2026";
+  renderKPI();
+  if (currentTab === "trends") renderCharts();
+}
+
+// ── INIT ───────────────────────────────────────────────────
+renderKPI();
+</script>
+</body>
+</html>

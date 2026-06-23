@@ -1,0 +1,304 @@
+# ============================================================
+# MyLugano KPI — FastAPI Backend
+# Avvia con: py -m uvicorn backend.main:app
+# Docs API:  http://127.0.0.1:8000/docs
+# ============================================================
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import pandas as pd
+import httpx
+from typing import Optional
+from pydantic import BaseModel
+
+app = FastAPI(title="MyLugano KPI API", version="1.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# ─────────────────────────────────────────
+# CONFIGURAZIONE GOOGLE SHEETS
+# ─────────────────────────────────────────
+CREDENTIALS_FILE = r"C:\Users\simona.gamba\Documents\CAS\07. Lavoro finale\mylugano-dashboard\credentials.json"
+SHEET_ID         = "1gDvJPaOH3EJZ6-0eB9MyCOnQRxsYYcftP3LmJLzrmSg"
+TAB_NAME         = "MyLugano_General_Data"
+
+def get_dataframe():
+    """Legge il Google Sheet e restituisce un DataFrame grezzo."""
+    scope  = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
+    creds  = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope)
+    client = gspread.authorize(creds)
+    sh     = client.open_by_key(SHEET_ID)
+    ws     = sh.worksheet(TAB_NAME)
+    data   = ws.get_all_values()
+    df     = pd.DataFrame(data)
+    return df
+
+def parse_sheet():
+    """
+    Legge il foglio e lo trasforma in un dizionario strutturato.
+    Struttura foglio:
+      Col 0 (A) = KPI (es. Utenti, Circuito, App...)
+      Col 1 (B) = Categoria Dato
+      Col 2 (C) = Dato (nome metrica)
+      Col 3+ (D+) = valori mensili (intestazione riga 0: set2020, ott2020, ...)
+    """
+    df = get_dataframe()
+
+    # Riga 0 = intestazioni (KPI, Categoria, Dato, set2020, ott2020, ...)
+    headers = df.iloc[0].tolist()  # es. ['KPI', 'Categoria Dato', 'Dato', 'set2020', ...]
+    mesi_cols = headers[3:]        # tutte le colonne mese
+
+    # Costruisce un dizionario: chiave = (kpi, categoria, dato) → {mese: valore}
+    result = {}
+    for _, row in df.iloc[1:].iterrows():
+        kpi      = str(row[0]).strip()
+        categoria = str(row[1]).strip()
+        dato     = str(row[2]).strip()
+        if not kpi or kpi == "KPI":
+            continue
+        valori = {}
+        for i, mese in enumerate(mesi_cols):
+            val = str(row[i+3]).strip().replace(".", "").replace(",", ".").replace("%", "").replace(" ", "")
+            try:
+                valori[mese] = float(val) if val else None
+            except:
+                valori[mese] = None
+        result[(kpi, categoria, dato)] = valori
+
+    return result, mesi_cols
+
+def get_serie(data, kpi, categoria, dato):
+    """Estrae una serie temporale per una metrica specifica."""
+    key = (kpi, categoria, dato)
+    if key not in data:
+        return {}
+    return data[key]
+
+def mese_to_anno_mese(mese_str):
+    """Converte 'gen2025' in {'mese': 'Jan', 'anno': 2025}"""
+    mesi_map = {
+        "gen":"Jan","feb":"Feb","mar":"Mar","apr":"Apr","mag":"May","giu":"Jun",
+        "lug":"Jul","ago":"Aug","set":"Sep","ott":"Oct","nov":"Nov","dic":"Dec"
+    }
+    try:
+        m = mese_str[:3].lower()
+        y = int(mese_str[3:])
+        return mesi_map.get(m, m), y
+    except:
+        return mese_str, None
+
+def serie_to_list(serie, mesi_cols, anno_filter=None):
+    """Converte una serie {mese: valore} in lista di record [{mese, anno, valore}]."""
+    records = []
+    for mese_str in mesi_cols:
+        m, y = mese_to_anno_mese(mese_str)
+        if anno_filter and y != anno_filter:
+            continue
+        records.append({"mese": m, "anno": y, "valore": serie.get(mese_str)})
+    return records
+
+# ─────────────────────────────────────────
+# ENDPOINTS
+# ─────────────────────────────────────────
+
+ANTHROPIC_API_KEY = "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"
+
+class ChatRequest(BaseModel):
+    prompt: str
+    system: str = ""
+
+@app.post("/api/chat")
+async def chat(req: ChatRequest):
+    try:
+        print(f"API Key starts with: {ANTHROPIC_API_KEY[:15]}...")
+        print(f"Prompt: {req.prompt[:50]}")
+        async with httpx.AsyncClient() as client:
+            res = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json",
+                },
+                json={
+                    "model": "claude-sonnet-4-5",
+                    "max_tokens": 800,
+                    "system": req.system,
+                    "messages": [{"role": "user", "content": req.prompt}]
+                },
+                timeout=30.0
+            )
+        print(f"Status: {res.status_code}")
+        data = res.json()
+        print(f"Response keys: {list(data.keys())}")
+        content = data.get("content", [])
+        if content and isinstance(content, list):
+            text = content[0].get("text", "")
+        else:
+            text = data.get("text", "") or str(data)
+        print(f"Text: {text[:100]}")
+        return {"text": text}
+    except Exception as e:
+        print(f"ERROR: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+    return {"message": "MyLugano KPI API", "version": "1.0", "docs": "/docs"}
+
+@app.get("/api/users")
+def get_users(anno: Optional[int] = None):
+    try:
+        data, mesi = parse_sheet()
+        utenti      = get_serie(data, "Utenti", "Utenti", "Numero account")
+        wallet      = get_serie(data, "Utenti", "Wallet Attivi", "Totale Wallet Attivi")
+        base        = get_serie(data, "Utenti", "Wallet Attivi", "Profilo base")
+        verificato  = get_serie(data, "Utenti", "Wallet Attivi", "Profilo verificato")
+        plus        = get_serie(data, "Utenti", "Wallet Attivi", "Profilo Plus")
+        analogico   = get_serie(data, "Utenti", "Wallet Attivi", "Profilo analogico")
+        records = []
+        for mese_str in mesi:
+            m, y = mese_to_anno_mese(mese_str)
+            if anno and y != anno:
+                continue
+            records.append({
+                "mese": m, "anno": y,
+                "utenti":              utenti.get(mese_str),
+                "wallet_attivi":       wallet.get(mese_str),
+                "profilo_base":        base.get(mese_str),
+                "profilo_verificato":  verificato.get(mese_str),
+                "profilo_plus":        plus.get(mese_str),
+                "profilo_analogico":   analogico.get(mese_str),
+            })
+        return records
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/revenue")
+def get_revenue(anno: Optional[int] = None):
+    try:
+        data, mesi = parse_sheet()
+        incassi_tot  = get_serie(data, "Circuito", "Tutte le attività", "Totale CHF incassati")
+        cashback_tot = get_serie(data, "Circuito", "Tutte le attività", "Totale cashback in CHF emesso")
+        incassi_priv = get_serie(data, "Partner/Merchant", "Attività economiche private", "Totale CHF incassati attività economiche private")
+        cashback_priv= get_serie(data, "Partner/Merchant", "Attività economiche private", "Totale cashback in CHF emesso da attività private")
+        records = []
+        for mese_str in mesi:
+            m, y = mese_to_anno_mese(mese_str)
+            if anno and y != anno:
+                continue
+            records.append({
+                "mese": m, "anno": y,
+                "incassi_chf":       incassi_tot.get(mese_str),
+                "cashback_chf":      cashback_tot.get(mese_str),
+                "incassi_privati":   incassi_priv.get(mese_str),
+                "cashback_privati":  cashback_priv.get(mese_str),
+            })
+        return records
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/partners")
+def get_partners(anno: Optional[int] = None):
+    try:
+        data, mesi = parse_sheet()
+        partner_tot    = get_serie(data, "Partner/Merchant", "Partner", "Totale Partner")
+        partner_attivi = get_serie(data, "Partner/Merchant", "Partner", "Partner attivi")
+        circolante     = get_serie(data, "Circuito", "Circolante", "Circolante in CHF")
+        records = []
+        for mese_str in mesi:
+            m, y = mese_to_anno_mese(mese_str)
+            if anno and y != anno:
+                continue
+            records.append({
+                "mese": m, "anno": y,
+                "partner_totali":  partner_tot.get(mese_str),
+                "partner_attivi":  partner_attivi.get(mese_str),
+                "circolante_chf":  circolante.get(mese_str),
+            })
+        return records
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/transactions")
+def get_transactions(anno: Optional[int] = None):
+    try:
+        data, mesi = parse_sheet()
+        transazioni = get_serie(data, "Circuito", "Totale transazioni", "Numero di transazioni")
+        records = []
+        for mese_str in mesi:
+            m, y = mese_to_anno_mese(mese_str)
+            if anno and y != anno:
+                continue
+            records.append({
+                "mese": m, "anno": y,
+                "transazioni": transazioni.get(mese_str),
+            })
+        return records
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/downloads")
+def get_downloads(anno: Optional[int] = None):
+    try:
+        data, mesi = parse_sheet()
+        dl_tot     = get_serie(data, "App", "Download TOTALI", "IOS + Android")
+        dl_ios     = get_serie(data, "App", "Download TOTALI", "Download cumulativo (iOS)")
+        dl_android = get_serie(data, "App", "Download TOTALI", "Download cumulativo (Android)")
+        records = []
+        for mese_str in mesi:
+            m, y = mese_to_anno_mese(mese_str)
+            if anno and y != anno:
+                continue
+            records.append({
+                "mese": m, "anno": y,
+                "download_totali":   dl_tot.get(mese_str),
+                "download_ios":      dl_ios.get(mese_str),
+                "download_android":  dl_android.get(mese_str),
+            })
+        return records
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/summary")
+def get_summary():
+    try:
+        data, mesi = parse_sheet()
+        # Prende gli ultimi due mesi disponibili
+        ultimi = [m for m in reversed(mesi) if any(
+            data.get(k, {}).get(m) for k in data
+        )][:2]
+        mese_attuale = ultimi[0] if ultimi else mesi[-1]
+        mese_prec    = ultimi[1] if len(ultimi) > 1 else mesi[-2]
+
+        def val(kpi, cat, dato, mese):
+            return data.get((kpi, cat, dato), {}).get(mese) or 0
+
+        def delta(v1, v2):
+            if v2 and v2 != 0:
+                return round((v1 - v2) / v2 * 100, 1)
+            return 0
+
+        u_att  = val("Utenti", "Utenti", "Numero account", mese_attuale)
+        u_prec = val("Utenti", "Utenti", "Numero account", mese_prec)
+        w_att  = val("Utenti", "Wallet Attivi", "Totale Wallet Attivi", mese_attuale)
+        w_prec = val("Utenti", "Wallet Attivi", "Totale Wallet Attivi", mese_prec)
+        p_att  = val("Partner/Merchant", "Partner", "Totale Partner", mese_attuale)
+        p_prec = val("Partner/Merchant", "Partner", "Totale Partner", mese_prec)
+        c_att  = val("Circuito", "Circolante", "Circolante in CHF", mese_attuale)
+        c_prec = val("Circuito", "Circolante", "Circolante in CHF", mese_prec)
+
+        return {
+            "mese_attuale": mese_attuale,
+            "utenti":         {"valore": u_att, "delta_pct": delta(u_att, u_prec),  "prev": u_prec},
+            "wallet_attivi":  {"valore": w_att, "delta_pct": delta(w_att, w_prec),  "prev": w_prec},
+            "partner_totali": {"valore": p_att, "delta_pct": delta(p_att, p_prec),  "prev": p_prec},
+            "circolante_chf": {"valore": c_att, "delta_pct": delta(c_att, c_prec),  "prev": c_prec},
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
