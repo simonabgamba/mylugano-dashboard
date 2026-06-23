@@ -25,14 +25,32 @@ app.add_middleware(
 # ─────────────────────────────────────────
 # CONFIGURAZIONE GOOGLE SHEETS
 # ─────────────────────────────────────────
-CREDENTIALS_FILE = r"C:\Users\simona.gamba\Documents\CAS\07. Lavoro finale\mylugano-dashboard\credentials.json"
-SHEET_ID         = "1gDvJPaOH3EJZ6-0eB9MyCOnQRxsYYcftP3LmJLzrmSg"
-TAB_NAME         = "MyLugano_General_Data"
+import os
+import json
+import tempfile
+
+ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
+SHEET_ID = "1gDvJPaOH3EJZ6-0eB9MyCOnQRxsYYcftP3LmJLzrmSg"
+TAB_NAME = "MyLugano_General_Data"
+
+def get_credentials_file():
+    """Usa il file locale se esiste, altrimenti usa la variabile d'ambiente."""
+    local_file = os.path.join(os.path.dirname(__file__), "..", "credentials.json")
+    if os.path.exists(local_file):
+        return local_file
+    # In produzione: legge dalla variabile d'ambiente
+    creds_json = os.environ.get("GOOGLE_CREDENTIALS", "")
+    if creds_json:
+        tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
+        tmp.write(creds_json)
+        tmp.flush()
+        return tmp.name
+    raise Exception("No Google credentials found")
 
 def get_dataframe():
     """Legge il Google Sheet e restituisce un DataFrame grezzo."""
     scope  = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
-    creds  = ServiceAccountCredentials.from_json_keyfile_name(CREDENTIALS_FILE, scope)
+    creds  = ServiceAccountCredentials.from_json_keyfile_name(get_credentials_file(), scope)
     client = gspread.authorize(creds)
     sh     = client.open_by_key(SHEET_ID)
     ws     = sh.worksheet(TAB_NAME)
@@ -108,7 +126,7 @@ def serie_to_list(serie, mesi_cols, anno_filter=None):
 # ENDPOINTS
 # ─────────────────────────────────────────
 
-ANTHROPIC_API_KEY = "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"
+ANTHROPIC_API_KEY = "YOUR_ANTHROPIC_API_KEY_HERE"
 
 class ChatRequest(BaseModel):
     prompt: str
