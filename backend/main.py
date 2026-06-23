@@ -21,14 +21,7 @@ app = FastAPI(title="MyLugano KPI API", version="1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "https://mylugano-dashboard.vercel.app",
-        "https://*.vercel.app",
-        "https://jade-lolly-be9687.netlify.app",
-        "https://*.netlify.app",
-    ],
+    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
