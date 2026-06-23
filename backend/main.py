@@ -12,6 +12,9 @@ import pandas as pd
 import httpx
 from typing import Optional
 from pydantic import BaseModel
+import os
+import json
+import tempfile
 
 app = FastAPI(title="MyLugano KPI API", version="1.0")
 
@@ -22,28 +25,21 @@ app.add_middleware(
         "http://localhost:5173",
         "https://mylugano-dashboard.vercel.app",
         "https://*.vercel.app",
+        "https://jade-lolly-be9687.netlify.app",
+        "https://*.netlify.app",
     ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-# ─────────────────────────────────────────
-# CONFIGURAZIONE GOOGLE SHEETS
-# ─────────────────────────────────────────
-import os
-import json
-import tempfile
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 SHEET_ID = "1gDvJPaOH3EJZ6-0eB9MyCOnQRxsYYcftP3LmJLzrmSg"
 TAB_NAME = "MyLugano_General_Data"
 
 def get_credentials_file():
-    """Usa il file locale se esiste, altrimenti usa la variabile d'ambiente."""
     local_file = os.path.join(os.path.dirname(__file__), "..", "credentials.json")
     if os.path.exists(local_file):
         return local_file
-    # In produzione: legge dalla variabile d'ambiente
     creds_json = os.environ.get("GOOGLE_CREDENTIALS", "")
     if creds_json:
         tmp = tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False)
@@ -53,7 +49,6 @@ def get_credentials_file():
     raise Exception("No Google credentials found")
 
 def get_dataframe():
-    """Legge il Google Sheet e restituisce un DataFrame grezzo."""
     scope  = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
     creds  = ServiceAccountCredentials.from_json_keyfile_name(get_credentials_file(), scope)
     client = gspread.authorize(creds)
@@ -64,21 +59,9 @@ def get_dataframe():
     return df
 
 def parse_sheet():
-    """
-    Legge il foglio e lo trasforma in un dizionario strutturato.
-    Struttura foglio:
-      Col 0 (A) = KPI (es. Utenti, Circuito, App...)
-      Col 1 (B) = Categoria Dato
-      Col 2 (C) = Dato (nome metrica)
-      Col 3+ (D+) = valori mensili (intestazione riga 0: set2020, ott2020, ...)
-    """
     df = get_dataframe()
-
-    # Riga 0 = intestazioni (KPI, Categoria, Dato, set2020, ott2020, ...)
-    headers = df.iloc[0].tolist()  # es. ['KPI', 'Categoria Dato', 'Dato', 'set2020', ...]
-    mesi_cols = headers[3:]        # tutte le colonne mese
-
-    # Costruisce un dizionario: chiave = (kpi, categoria, dato) → {mese: valore}
+    headers = df.iloc[0].tolist()
+    mesi_cols = headers[3:]
     result = {}
     for _, row in df.iloc[1:].iterrows():
         kpi      = str(row[0]).strip()
@@ -94,18 +77,15 @@ def parse_sheet():
             except:
                 valori[mese] = None
         result[(kpi, categoria, dato)] = valori
-
     return result, mesi_cols
 
 def get_serie(data, kpi, categoria, dato):
-    """Estrae una serie temporale per una metrica specifica."""
     key = (kpi, categoria, dato)
     if key not in data:
         return {}
     return data[key]
 
 def mese_to_anno_mese(mese_str):
-    """Converte 'gen2025' in {'mese': 'Jan', 'anno': 2025}"""
     mesi_map = {
         "gen":"Jan","feb":"Feb","mar":"Mar","apr":"Apr","mag":"May","giu":"Jun",
         "lug":"Jul","ago":"Aug","set":"Sep","ott":"Oct","nov":"Nov","dic":"Dec"
@@ -118,7 +98,6 @@ def mese_to_anno_mese(mese_str):
         return mese_str, None
 
 def serie_to_list(serie, mesi_cols, anno_filter=None):
-    """Converte una serie {mese: valore} in lista di record [{mese, anno, valore}]."""
     records = []
     for mese_str in mesi_cols:
         m, y = mese_to_anno_mese(mese_str)
@@ -131,8 +110,6 @@ def serie_to_list(serie, mesi_cols, anno_filter=None):
 # ENDPOINTS
 # ─────────────────────────────────────────
 
-ANTHROPIC_API_KEY = "YOUR_ANTHROPIC_API_KEY_HERE"
-
 class ChatRequest(BaseModel):
     prompt: str
     system: str = ""
@@ -140,8 +117,6 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     try:
-        print(f"API Key starts with: {ANTHROPIC_API_KEY[:15]}...")
-        print(f"Prompt: {req.prompt[:50]}")
         async with httpx.AsyncClient() as client:
             res = await client.post(
                 "https://api.anthropic.com/v1/messages",
@@ -158,21 +133,15 @@ async def chat(req: ChatRequest):
                 },
                 timeout=30.0
             )
-        print(f"Status: {res.status_code}")
         data = res.json()
-        print(f"Response keys: {list(data.keys())}")
         content = data.get("content", [])
         if content and isinstance(content, list):
             text = content[0].get("text", "")
         else:
             text = data.get("text", "") or str(data)
-        print(f"Text: {text[:100]}")
         return {"text": text}
     except Exception as e:
-        print(f"ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
-
-    return {"message": "MyLugano KPI API", "version": "1.0", "docs": "/docs"}
 
 @app.get("/api/users")
 def get_users(anno: Optional[int] = None):
@@ -292,7 +261,6 @@ def get_downloads(anno: Optional[int] = None):
 def get_summary():
     try:
         data, mesi = parse_sheet()
-        # Prende gli ultimi due mesi disponibili
         ultimi = [m for m in reversed(mesi) if any(
             data.get(k, {}).get(m) for k in data
         )][:2]
