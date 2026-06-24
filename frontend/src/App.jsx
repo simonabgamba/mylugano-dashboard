@@ -160,16 +160,17 @@ function useIsMobile() {
 }
 
 // ── UI BASE ──────────────────────────────────────────────────
-function Card({ children, style = {}, exportRef, exportTitle }) {
+function Card({ children, style = {}, exportTitle }) {
+  const cardRef = useRef(null);
   return (
-    <div style={{
+    <div ref={cardRef} style={{
       background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 16,
       borderTop: `3px solid ${RED}`, padding: 20,
       boxShadow: "0 1px 4px rgba(0,0,0,0.04)", position: "relative", ...style
     }}>
-      {exportRef && exportTitle && (
-        <div style={{ position: "absolute", top: 12, right: 12 }}>
-          <ExportBtn chartRef={exportRef} title={exportTitle} compact={true} />
+      {exportTitle && (
+        <div style={{ position: "absolute", top: 12, right: 12, zIndex: 10 }}>
+          <ExportBtn cardRef={cardRef} title={exportTitle} compact={true} />
         </div>
       )}
       {children}
@@ -267,7 +268,6 @@ function CustomDot(props) {
 function KpiCard({ label, value, delta, prev, pos, context, kpiPromptFn, t }) {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
-  const chartRef = useRef(null);
 
   useEffect(() => {
     if (!context) return;
@@ -283,14 +283,8 @@ function KpiCard({ label, value, delta, prev, pos, context, kpiPromptFn, t }) {
   }, [label, context]);
 
   return (
-    <div ref={chartRef} style={{
-      background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 16,
-      padding: 20, position: "relative", overflow: "hidden"
-    }}>
+    <Card exportTitle={label} style={{ overflow: "hidden" }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: pos ? RED : "#ccc", borderRadius: "16px 16px 0 0" }} />
-      <div style={{ position: "absolute", top: 12, right: 12 }}>
-        <ExportBtn chartRef={chartRef} title={label} compact={true} />
-      </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, marginTop: 4 }}>
         <div>
           <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>{label}</div>
@@ -322,7 +316,7 @@ function KpiCard({ label, value, delta, prev, pos, context, kpiPromptFn, t }) {
           </div>
         </>
       )}
-    </div>
+    </Card>
   );
 }
 
@@ -401,78 +395,94 @@ function Leg({ color, label }) {
   );
 }
 
-function ExportBtn({ chartRef, title, compact }) {
-  function doExport() {
-    const node = chartRef.current;
+function ExportBtn({ cardRef, title, compact }) {
+  const [exporting, setExporting] = useState(false);
+
+  async function doExport() {
+    const node = cardRef?.current;
     if (!node) return;
-    const rect = node.getBoundingClientRect();
-    const scale = 2;
-    const canvas = document.createElement("canvas");
-    canvas.width = rect.width * scale;
-    canvas.height = rect.height * scale;
-    const ctx2d = canvas.getContext("2d");
-    ctx2d.scale(scale, scale);
-    // White background
-    ctx2d.fillStyle = "#ffffff";
-    ctx2d.fillRect(0, 0, rect.width, rect.height);
-    // Use html2canvas approach via SVG foreignObject
-    const svgs = node.querySelectorAll("svg");
-    if (svgs.length === 0) return;
-    // Serialize all SVGs and compose
-    const promises = Array.from(svgs).map(svg => {
-      return new Promise(resolve => {
-        const serializer = new XMLSerializer();
-        const svgStr = serializer.serializeToString(svg);
+    setExporting(true);
+    try {
+      const scale = 2;
+      const rect = node.getBoundingClientRect();
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(rect.width * scale);
+      canvas.height = Math.round(rect.height * scale);
+      const ctx = canvas.getContext("2d");
+      ctx.scale(scale, scale);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, rect.width, rect.height);
+
+      // Collect all SVGs inside the card
+      const svgs = Array.from(node.querySelectorAll("svg"));
+      await Promise.all(svgs.map(svg => new Promise(resolve => {
         const svgRect = svg.getBoundingClientRect();
-        const offsetX = svgRect.left - rect.left;
-        const offsetY = svgRect.top - rect.top;
-        const img = new Image();
-        const blob = new Blob([svgStr], { type: "image/svg+xml" });
+        const dx = svgRect.left - rect.left;
+        const dy = svgRect.top - rect.top;
+        const clone = svg.cloneNode(true);
+        clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+        const blob = new Blob([new XMLSerializer().serializeToString(clone)], { type: "image/svg+xml" });
         const url = URL.createObjectURL(blob);
-        img.onload = () => {
-          ctx2d.drawImage(img, offsetX, offsetY, svgRect.width, svgRect.height);
-          URL.revokeObjectURL(url);
-          resolve();
-        };
-        img.onerror = () => resolve();
+        const img = new Image();
+        img.onload = () => { ctx.drawImage(img, dx, dy, svgRect.width, svgRect.height); URL.revokeObjectURL(url); resolve(); };
+        img.onerror = () => { URL.revokeObjectURL(url); resolve(); };
         img.src = url;
+      })));
+
+      // Draw text elements (title, legend, analysis)
+      const walkText = (el, depth) => {
+        if (depth > 8) return;
+        const children = Array.from(el.children);
+        if (children.length === 0 || el.tagName === "BUTTON") {
+          const text = el.innerText?.trim();
+          if (!text) return;
+          const elRect = el.getBoundingClientRect();
+          if (elRect.width < 1 || elRect.height < 1) return;
+          const style = window.getComputedStyle(el);
+          const x = elRect.left - rect.left;
+          const y = elRect.top - rect.top;
+          const fs = parseFloat(style.fontSize) || 12;
+          ctx.font = `${style.fontWeight || 400} ${fs}px ${style.fontFamily || "system-ui"}`;
+          ctx.fillStyle = style.color || "#000";
+          ctx.fillText(text, x, y + fs * 0.85);
+        } else {
+          children.forEach(c => walkText(c, depth + 1));
+        }
+      };
+
+      // Draw all non-SVG text content
+      Array.from(node.children).forEach(child => {
+        if (!child.querySelector("svg") && child.tagName !== "BUTTON") {
+          walkText(child, 0);
+        }
       });
-    });
-    // Also draw text nodes
-    Promise.all(promises).then(() => {
-      // Draw text content from non-SVG elements
-      const textEls = node.querySelectorAll("div, span, p");
-      textEls.forEach(el => {
-        const elRect = el.getBoundingClientRect();
-        if (elRect.width === 0 || elRect.height === 0) return;
-        const style = window.getComputedStyle(el);
-        const text = el.innerText?.trim();
-        if (!text || el.querySelector("div, span")) return;
-        const x = elRect.left - rect.left;
-        const y = elRect.top - rect.top;
-        ctx2d.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
-        ctx2d.fillStyle = style.color;
-        ctx2d.fillText(text, x, y + parseFloat(style.fontSize));
-      });
-      const link = document.createElement("a");
+
       const date = new Date().toISOString().slice(0, 10);
-      const safeName = title.replace(/[^a-zA-Z0-9À-ÿ ]/g, "").trim().replace(/ +/g, "_");
+      const safeName = (title || "export").replace(/[^a-zA-Z0-9À-ÿ ]/g, "").trim().replace(/ +/g, "_");
+      const link = document.createElement("a");
       link.download = `${safeName}_${date}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
-    });
+    } catch(e) {
+      console.error("Export error:", e);
+    }
+    setExporting(false);
   }
+
   return (
-    <button onClick={doExport} style={{
+    <button onClick={doExport} disabled={exporting} style={{
       marginTop: compact ? 0 : 12,
       fontSize: compact ? 10 : 11,
-      color: MUTED, background: "none",
+      color: exporting ? RED : MUTED,
+      background: "none",
       border: `1px solid ${BORDER}`,
       borderRadius: compact ? 6 : 8,
       padding: compact ? "3px 8px" : "4px 12px",
-      cursor: "pointer", display: "flex", alignItems: "center", gap: 4
+      cursor: exporting ? "wait" : "pointer",
+      display: "flex", alignItems: "center", gap: 4,
+      opacity: exporting ? 0.6 : 1
     }}>
-      <span>↓</span>{compact ? "PNG" : " Export PNG"}
+      <span>{exporting ? "..." : "↓"}</span>{compact ? "PNG" : " Export PNG"}
     </button>
   );
 }
@@ -497,7 +507,6 @@ function buildQuarterly(data) {
 }
 
 function ChartNuoviUtenti({ data, years, title, lang, kpiPromptFn, t }) {
-  const chartRef = useRef(null);
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
   const filteredData = years && years.length > 0 ? data.filter(d => years.includes(d.anno)) : data;
@@ -518,10 +527,9 @@ function ChartNuoviUtenti({ data, years, title, lang, kpiPromptFn, t }) {
   }, [lang, data]);
 
   return (
-    <Card style={{ gridColumn: "1 / -1", marginBottom: 14 }} exportRef={chartRef} exportTitle={title}>
+    <Card style={{ gridColumn: "1 / -1", marginBottom: 14 }} exportTitle={title}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, paddingRight: 60 }}>{title}</div>
-      <div ref={chartRef}>
-        <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={serie.map((d, i) => {
             // Linear regression
             const n = serie.length;
@@ -543,8 +551,6 @@ function ChartNuoviUtenti({ data, years, title, lang, kpiPromptFn, t }) {
             <Line type="linear" dataKey="trend" stroke={AMBER} strokeWidth={2} dot={false} strokeDasharray="5 3" name="Trend" />
           </ComposedChart>
         </ResponsiveContainer>
-      </div>
-      <ExportBtn chartRef={chartRef} title={title} />
       <div style={{ height: 1, background: BORDER, margin: "14px 0" }} />
       {loading && <div style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>{t.analyzing}</div>}
       {analysis && (
@@ -573,21 +579,19 @@ function ChartNuoviUtenti({ data, years, title, lang, kpiPromptFn, t }) {
 }
 
 function ChartLine({ data, dataKey, years, title, sub, yPadding, notes }) {
-  const chartRef = useRef(null);
   const pivoted = pivotByMese(data, dataKey, years);
   const noteMesi = pivoted.filter(row => hasNote(row.mese, years, notes)).map(r => r.mese);
   const allVals = pivoted.flatMap(row => years.map(y => row["y"+y]).filter(Boolean));
   const maxVal = allVals.length ? Math.max(...allVals) : 0;
   const yMax = yPadding ? Math.ceil((maxVal + yPadding) / 10000) * 10000 : undefined;
   return (
-    <Card exportRef={chartRef} exportTitle={title}>
+    <Card exportTitle={title}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, paddingRight: 60 }}>{title}</div>
       {sub && <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>{sub}</div>}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
         {years.map(y => <Leg key={y} color={YEAR_COLORS[y] || RED} label={y} />)}
       </div>
-      <div ref={chartRef}>
-        <ResponsiveContainer width="100%" height={240}>
+      <ResponsiveContainer width="100%" height={240}>
           <LineChart data={pivoted} margin={{ bottom: noteMesi.length > 0 ? 16 : 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
             <XAxis dataKey="mese" tick={<CustomXTick noteMesi={noteMesi} />} height={noteMesi.length > 0 ? 40 : 20} />
@@ -646,24 +650,21 @@ function ChartLine({ data, dataKey, years, title, sub, yPadding, notes }) {
             })}
           </LineChart>
         </ResponsiveContainer>
-      </div>
     </Card>
   );
 }
 
 function ChartBar({ data, dataKey, years, title, sub, notes }) {
-  const chartRef = useRef(null);
   const pivoted = pivotByMese(data, dataKey, years);
   const noteMesi = pivoted.filter(row => hasNote(row.mese, years, notes)).map(r => r.mese);
   return (
-    <Card exportRef={chartRef} exportTitle={title}>
+    <Card exportTitle={title}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, paddingRight: 60 }}>{title}</div>
       {sub && <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>{sub}</div>}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
         {years.map(y => <Leg key={y} color={YEAR_COLORS[y] || RED} label={y} />)}
       </div>
-      <div ref={chartRef}>
-        <ResponsiveContainer width="100%" height={240}>
+      <ResponsiveContainer width="100%" height={240}>
           <BarChart data={pivoted} barSize={Math.max(3, Math.floor(18 / years.length))} margin={{ bottom: noteMesi.length > 0 ? 16 : 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
             <XAxis dataKey="mese" tick={<CustomXTick noteMesi={noteMesi} />} height={noteMesi.length > 0 ? 40 : 20} />
@@ -676,7 +677,6 @@ function ChartBar({ data, dataKey, years, title, sub, notes }) {
             ))}
           </BarChart>
         </ResponsiveContainer>
-      </div>
     </Card>
   );
 }
@@ -717,7 +717,6 @@ function ChartAllTime({ data, dataKey, title, sub, showEvery3, notes, yPadding }
     return acc;
   }, []) : [];
   const noteIndicesSerie = noteKeys;
-  const chartRef = useRef(null);
   const n = serie.length;
   const xMean = (n-1)/2;
   const yMeanT = n ? serie.reduce((s,d)=>s+d.valore,0)/n : 0;
@@ -728,11 +727,10 @@ function ChartAllTime({ data, dataKey, title, sub, showEvery3, notes, yPadding }
   const serieWithTrend = serie.map((d,i) => ({ ...d, trend: Math.round(slopeT*i+interceptT) }));
   const trendPct = n >= 2 ? Math.round((serieWithTrend[n-1].trend - serieWithTrend[0].trend) / serieWithTrend[0].trend * 100) : null;
   return (
-    <Card exportRef={chartRef} exportTitle={title}>
+    <Card exportTitle={title}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, paddingRight: 60 }}>{title}</div>
       {sub && <div style={{ fontSize: 11, color: MUTED, marginBottom: 16 }}>{sub}</div>}
-      <div ref={chartRef}>
-        <ResponsiveContainer width="100%" height={240}>
+      <ResponsiveContainer width="100%" height={240}>
           <LineChart data={serieWithTrend}>
             <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
             <XAxis dataKey="label" tick={<CustomXTickAllTime noteLabels={noteIndicesSerie.map(i => serie[i]?.label)} />}
@@ -762,7 +760,6 @@ function ChartAllTime({ data, dataKey, title, sub, showEvery3, notes, yPadding }
             />
           </LineChart>
         </ResponsiveContainer>
-      </div>
     </Card>
   );
 }
