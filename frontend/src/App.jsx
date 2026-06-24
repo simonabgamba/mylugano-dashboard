@@ -821,9 +821,6 @@ export default function App() {
       {/* ── TAB KPI ── */}
       {tab === "kpi" && (
         <>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: "1.5rem" }}>
-            <ChartNuoviUtenti data={users} title={lang === "it" ? "Nuovi utenti per trimestre" : "New users per quarter"} lang={lang} kpiPromptFn={t.kpi_prompt} t={t} />
-          </div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: "2rem" }}>
             {t.kpis.map(k => {
               const s = summary[k.key];
@@ -855,6 +852,9 @@ export default function App() {
                 />
               );
             })}
+          </div>
+          <div style={{ marginTop: 14 }}>
+            <ChartNuoviUtenti data={users} title={lang === "it" ? "Nuovi utenti per trimestre" : "New users per quarter"} lang={lang} kpiPromptFn={t.kpi_prompt} t={t} />
           </div>
         </>
       )}
