@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  LineChart, Line, BarChart, Bar,
+  LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, ReferenceLine, Label, LabelList
 } from "recharts";
@@ -42,13 +42,15 @@ const I18N = {
       { label:"Total Partners",  key:"partner_totali"},
       { label:"Circulating CHF", key:"circolante_chf"},
     ],
-    kpi_prompt: (label, ctx) => `You are a senior analyst for MyLugano, digital wallet platform of the City of Lugano.
+    kpi_prompt: (label, ctx, notes) => `You are a senior analyst for MyLugano, digital wallet platform of the City of Lugano.
+${notes && Object.keys(notes).length > 0 ? "Team notes: " + Object.entries(notes).map(([k,v]) => k+": "+v).join(", ") + "." : ""}
 Analyze this KPI and respond ONLY with valid JSON, no markdown:
 {"headline":"one sentence max 12 words","impatto":"one sentence max 20 words","anomalia":"one sentence on any anomaly or null if none","misure":["action 1 max 8 words","action 2 max 8 words","action 3 max 8 words"]}
 KPI: ${label}. Data: ${ctx}`,
-    system_prompt: (s) => `You are a senior data analyst for MyLugano, the digital wallet and cashback platform of the City of Lugano, Switzerland.
+    system_prompt: (s, notes) => `You are a senior data analyst for MyLugano, the digital wallet and cashback platform of the City of Lugano, Switzerland.
 Current data: Users ${s?.utenti?.valore?.toLocaleString()} (${s?.utenti?.delta_pct}% MoM), Active wallets ${s?.wallet_attivi?.valore?.toLocaleString()}, Partners ${s?.partner_totali?.valore}, Circulating CHF ${s?.circolante_chf?.valore?.toLocaleString()}.
-Answer concisely and professionally in English.`,
+${notes && Object.keys(notes).length > 0 ? "Monthly notes from the team: " + Object.entries(notes).map(([k,v]) => k+": "+v).join(", ") + "." : ""}
+Answer concisely and professionally in English. If you lack enough data to answer precisely, ask up to 3 clarifying questions instead of guessing.`,
   },
   it: {
     subtitle: "Dashboard KPI — Live",
@@ -77,13 +79,15 @@ Answer concisely and professionally in English.`,
       { label:"Partner totali",  key:"partner_totali"},
       { label:"Circolante CHF",  key:"circolante_chf"},
     ],
-    kpi_prompt: (label, ctx) => `Sei un analista senior di MyLugano, piattaforma di wallet digitale della Città di Lugano.
+    kpi_prompt: (label, ctx, notes) => `Sei un analista senior di MyLugano, piattaforma di wallet digitale della Città di Lugano.
+${notes && Object.keys(notes).length > 0 ? "Note mensili del team: " + Object.entries(notes).map(([k,v]) => k+": "+v).join(", ") + "." : ""}
 Analizza questo KPI e rispondi SOLO con JSON valido, senza markdown:
 {"headline":"una frase max 12 parole","impatto":"una frase max 20 parole","anomalia":"una frase su anomalie o null","misure":["azione 1 max 8 parole","azione 2 max 8 parole","azione 3 max 8 parole"]}
 KPI: ${label}. Dati: ${ctx}`,
-    system_prompt: (s) => `Sei un analista senior di MyLugano, la piattaforma di wallet digitale e cashback della Città di Lugano.
+    system_prompt: (s, notes) => `Sei un analista senior di MyLugano, la piattaforma di wallet digitale e cashback della Città di Lugano.
 Dati attuali: Utenti ${s?.utenti?.valore?.toLocaleString()} (${s?.utenti?.delta_pct}% MoM), Wallet attivi ${s?.wallet_attivi?.valore?.toLocaleString()}, Partner ${s?.partner_totali?.valore}, Circolante CHF ${s?.circolante_chf?.valore?.toLocaleString()}.
-Rispondi in italiano, in modo conciso e professionale. Non usare markdown con asterischi.`,
+${notes && Object.keys(notes).length > 0 ? "Note mensili del team: " + Object.entries(notes).map(([k,v]) => k+": "+v).join(", ") + "." : ""}
+Rispondi in italiano, in modo conciso e professionale. Non usare markdown con asterischi. Se non hai dati sufficienti per rispondere con precisione, fai fino a 3 domande di chiarimento invece di fare supposizioni.`,
   }
 };
 
@@ -457,7 +461,17 @@ function ChartNuoviUtenti({ data, title, lang, kpiPromptFn, t }) {
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{title}</div>
       <div ref={chartRef}>
         <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={serie} barSize={22}>
+          <ComposedChart data={serie.map((d, i) => {
+            // Linear regression
+            const n = serie.length;
+            const xMean = (n - 1) / 2;
+            const yMean = serie.reduce((s, d) => s + d.valore, 0) / n;
+            const num = serie.reduce((s, d2, j) => s + (j - xMean) * (d2.valore - yMean), 0);
+            const den = serie.reduce((s, d2, j) => s + (j - xMean) ** 2, 0);
+            const slope = den ? num / den : 0;
+            const intercept = yMean - slope * xMean;
+            return { ...d, trend: Math.round(slope * i + intercept) };
+          })} barSize={22}>
             <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
             <XAxis dataKey="label" tick={{ fontSize: 9 }} />
             <YAxis tickFormatter={v => v ? v.toLocaleString() : ""} tick={{ fontSize: 10 }} />
@@ -465,7 +479,8 @@ function ChartNuoviUtenti({ data, title, lang, kpiPromptFn, t }) {
             <Bar dataKey="valore" fill={RED} radius={[3,3,0,0]}>
               <LabelList dataKey="valore" content={<CustomBarLabel />} />
             </Bar>
-          </BarChart>
+            <Line type="linear" dataKey="trend" stroke={AMBER} strokeWidth={2} dot={false} strokeDasharray="5 3" name="Trend" />
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
       <ExportBtn chartRef={chartRef} title={title} />
@@ -641,7 +656,7 @@ function formatMessage(text) {
     .replace(/\n/g, '<br>');
 }
 
-function ChatBot({ summary, t }) {
+function ChatBot({ summary, notes, t }) {
   const [messages, setMessages] = useState([{ role: "assistant", text: t.chat_intro }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -655,7 +670,7 @@ function ChatBot({ summary, t }) {
     setMessages(m => [...m, { role: "user", text: userMsg }]);
     setLoading(true);
     try {
-      const reply = await callClaude(userMsg, t.system_prompt(summary));
+      const reply = await callClaude(userMsg, t.system_prompt(summary, notes));
       setMessages(m => [...m, { role: "assistant", text: reply }]);
     } catch {
       setMessages(m => [...m, { role: "assistant", text: "Connection error. Please try again." }]);
@@ -838,7 +853,7 @@ export default function App() {
                   prev={`${s?.prev?.toLocaleString()} prev month`}
                   pos={s?.delta_pct >= 0}
                   context={ctx}
-                  kpiPromptFn={t.kpi_prompt}
+                  kpiPromptFn={(label, ctx) => t.kpi_prompt(label, ctx, notes)}
                   t={t}
                 />
               );
@@ -890,7 +905,7 @@ export default function App() {
       )}
 
       {/* ── TAB CHAT ── */}
-      {tab === "chat" && <ChatBot summary={summary} t={t} />}
+      {tab === "chat" && <ChatBot summary={summary} notes={notes} t={t} />}
 
       <div style={{ marginTop: "2.5rem", textAlign: "center", fontSize: 11, color: MUTED, borderTop: `1px solid ${BORDER}`, paddingTop: "1.5rem" }}>
         MyLugano · {lang === "it" ? "Città di Lugano" : "City of Lugano"} · Live data from Google Sheets
