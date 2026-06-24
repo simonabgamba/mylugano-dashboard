@@ -11,97 +11,13 @@ const MUTED="#7a7a8a", BORDER="#e8e8ee", DARK="#111118";
 const AMBER="#b45309", AMBER_L="rgba(180,83,9,0.08)";
 const YEAR_COLORS={2021:"#bbb",2022:"#999",2023:"#d4d4d4",2024:"#f5a5a8",2025:"#d42f3a",2026:"#7c3aed"};
 const MESI_ORDER=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-
-// ── DATI FANTOCCIO ───────────────────────────────────────────
-const MOCK_SUMMARY = {
-  mese_attuale: "mag2026",
-  utenti:         { valore: 58990, delta_pct: 1.5,  prev: 58096 },
-  wallet_attivi:  { valore: 42191, delta_pct: 2.1,  prev: 41326 },
-  partner_totali: { valore: 470,   delta_pct: -0.2, prev: 471   },
-  circolante_chf: { valore: 673678,delta_pct: 0.6,  prev: 669576},
-};
-
-const MOCK_USERS = [
-  {mese:"Jan",anno:2025,utenti:47684,wallet_attivi:31074},{mese:"Feb",anno:2025,utenti:48022,wallet_attivi:31392},
-  {mese:"Mar",anno:2025,utenti:48515,wallet_attivi:32053},{mese:"Apr",anno:2025,utenti:48904,wallet_attivi:31404},
-  {mese:"May",anno:2025,utenti:49505,wallet_attivi:32159},{mese:"Jun",anno:2025,utenti:50823,wallet_attivi:33635},
-  {mese:"Jul",anno:2025,utenti:52294,wallet_attivi:35273},{mese:"Aug",anno:2025,utenti:53277,wallet_attivi:36335},
-  {mese:"Sep",anno:2025,utenti:53744,wallet_attivi:36858},{mese:"Oct",anno:2025,utenti:54282,wallet_attivi:37442},
-  {mese:"Nov",anno:2025,utenti:54569,wallet_attivi:37776},{mese:"Dec",anno:2025,utenti:56481,wallet_attivi:39536},
-  {mese:"Jan",anno:2026,utenti:56768,wallet_attivi:39884},{mese:"Feb",anno:2026,utenti:57092,wallet_attivi:40251},
-  {mese:"Mar",anno:2026,utenti:57570,wallet_attivi:40766},{mese:"Apr",anno:2026,utenti:58096,wallet_attivi:41326},
-  {mese:"May",anno:2026,utenti:58990,wallet_attivi:42191},
-];
-
-const MOCK_REVENUE = [
-  {mese:"Jan",anno:2024,incassi_chf:34788,cashback_chf:12074},{mese:"Feb",anno:2024,incassi_chf:33805,cashback_chf:12309},
-  {mese:"Mar",anno:2024,incassi_chf:30435,cashback_chf:13806},{mese:"Apr",anno:2024,incassi_chf:33291,cashback_chf:13303},
-  {mese:"May",anno:2024,incassi_chf:34628,cashback_chf:14269},{mese:"Jun",anno:2024,incassi_chf:40620,cashback_chf:15053},
-  {mese:"Jul",anno:2024,incassi_chf:57976,cashback_chf:20468},{mese:"Aug",anno:2024,incassi_chf:47981,cashback_chf:20188},
-  {mese:"Sep",anno:2024,incassi_chf:34859,cashback_chf:16341},{mese:"Oct",anno:2024,incassi_chf:38907,cashback_chf:16006},
-  {mese:"Nov",anno:2024,incassi_chf:34867,cashback_chf:16602},{mese:"Dec",anno:2024,incassi_chf:85872,cashback_chf:23910},
-  {mese:"Jan",anno:2025,incassi_chf:39939,cashback_chf:15276},{mese:"Feb",anno:2025,incassi_chf:41287,cashback_chf:16017},
-  {mese:"Mar",anno:2025,incassi_chf:43580,cashback_chf:18954},{mese:"Apr",anno:2025,incassi_chf:33598,cashback_chf:17986},
-  {mese:"May",anno:2025,incassi_chf:48344,cashback_chf:22549},{mese:"Jun",anno:2025,incassi_chf:58243,cashback_chf:24929},
-  {mese:"Jul",anno:2025,incassi_chf:56288,cashback_chf:23783},{mese:"Aug",anno:2025,incassi_chf:49296,cashback_chf:22014},
-  {mese:"Sep",anno:2025,incassi_chf:39618,cashback_chf:17412},{mese:"Oct",anno:2025,incassi_chf:38652,cashback_chf:19201},
-  {mese:"Nov",anno:2025,incassi_chf:32286,cashback_chf:16566},{mese:"Dec",anno:2025,incassi_chf:39558,cashback_chf:20965},
-  {mese:"Jan",anno:2026,incassi_chf:22024,cashback_chf:16899},{mese:"Feb",anno:2026,incassi_chf:25272,cashback_chf:20187},
-  {mese:"Mar",anno:2026,incassi_chf:28445,cashback_chf:22773},{mese:"Apr",anno:2026,incassi_chf:21467,cashback_chf:15879},
-  {mese:"May",anno:2026,incassi_chf:24100,cashback_chf:17500},
-];
-
-const MOCK_TRANSACTIONS = [
-  {mese:"Jan",anno:2024,transazioni:5624},{mese:"Feb",anno:2024,transazioni:4914},
-  {mese:"Mar",anno:2024,transazioni:4922},{mese:"Apr",anno:2024,transazioni:5295},
-  {mese:"May",anno:2024,transazioni:4967},{mese:"Jun",anno:2024,transazioni:6350},
-  {mese:"Jul",anno:2024,transazioni:7902},{mese:"Aug",anno:2024,transazioni:12907},
-  {mese:"Sep",anno:2024,transazioni:13286},{mese:"Oct",anno:2024,transazioni:4871},
-  {mese:"Nov",anno:2024,transazioni:6492},{mese:"Dec",anno:2024,transazioni:13720},
-  {mese:"Jan",anno:2025,transazioni:7564},{mese:"Feb",anno:2025,transazioni:6978},
-  {mese:"Mar",anno:2025,transazioni:7774},{mese:"Apr",anno:2025,transazioni:5337},
-  {mese:"May",anno:2025,transazioni:10681},{mese:"Jun",anno:2025,transazioni:16473},
-  {mese:"Jul",anno:2025,transazioni:13647},{mese:"Aug",anno:2025,transazioni:13594},
-  {mese:"Sep",anno:2025,transazioni:7052},{mese:"Oct",anno:2025,transazioni:8722},
-  {mese:"Nov",anno:2025,transazioni:7988},{mese:"Dec",anno:2025,transazioni:8126},
-  {mese:"Jan",anno:2026,transazioni:8246},{mese:"Feb",anno:2026,transazioni:7541},
-  {mese:"Mar",anno:2026,transazioni:8993},{mese:"Apr",anno:2026,transazioni:7500},
-  {mese:"May",anno:2026,transazioni:8100},
-];
-
-const MOCK_DOWNLOADS = [
-  {mese:"Jan",anno:2025,download_totali:43801,download_ios:38200,download_android:5601},
-  {mese:"Feb",anno:2025,download_totali:44040,download_ios:38400,download_android:5640},
-  {mese:"Mar",anno:2025,download_totali:44299,download_ios:38600,download_android:5699},
-  {mese:"Apr",anno:2025,download_totali:44516,download_ios:38780,download_android:5736},
-  {mese:"May",anno:2025,download_totali:44758,download_ios:38950,download_android:5808},
-  {mese:"Jun",anno:2025,download_totali:45446,download_ios:39500,download_android:5946},
-  {mese:"Jul",anno:2025,download_totali:46664,download_ios:40600,download_android:6064},
-  {mese:"Aug",anno:2025,download_totali:48178,download_ios:41900,download_android:6278},
-  {mese:"Sep",anno:2025,download_totali:48956,download_ios:42500,download_android:6456},
-  {mese:"Oct",anno:2025,download_totali:49259,download_ios:42750,download_android:6509},
-  {mese:"Nov",anno:2025,download_totali:49622,download_ios:43050,download_android:6572},
-  {mese:"Dec",anno:2025,download_totali:49783,download_ios:43180,download_android:6603},
-  {mese:"Jan",anno:2026,download_totali:50180,download_ios:43500,download_android:6680},
-  {mese:"Feb",anno:2026,download_totali:50436,download_ios:43720,download_android:6716},
-  {mese:"Mar",anno:2026,download_totali:50796,download_ios:44020,download_android:6776},
-  {mese:"Apr",anno:2026,download_totali:51229,download_ios:44380,download_android:6849},
-  {mese:"May",anno:2026,download_totali:51650,download_ios:44720,download_android:6930},
-];
-
-// Note fantoccio: "Mese-Anno" → testo
-const MOCK_NOTES = {
-  "Nov-2025": "Campagna di Natale",
-  "Dec-2025": "Campagna di Natale",
-  "Jun-2025": "Lancio feature cashback",
-  "Mar-2026": "Onboarding 10 nuovi partner",
-};
+const SHEET_URL="https://docs.google.com/spreadsheets/d/1gDvJPaOH3EJZ6-0eB9MyCOnQRxsYYcftP3LmJLzrmSg/edit?gid=1642375582#gid=1642375582";
 
 // ── I18N ────────────────────────────────────────────────────
 const I18N = {
   en: {
     subtitle: "KPI Dashboard — Live",
-    live: "Live · Google Sheets",
+    live: "Go to Google Sheet",
     tab_kpi: "KPI & Analysis",
     tab_trends: "Trends",
     tab_history: "Full History",
@@ -135,7 +51,7 @@ Answer concisely and professionally in English.`,
   },
   it: {
     subtitle: "Dashboard KPI — Live",
-    live: "Live · Google Sheets",
+    live: "Vai a Google Sheet",
     tab_kpi: "KPI & Analisi",
     tab_trends: "Andamenti",
     tab_history: "Storico completo",
@@ -397,7 +313,6 @@ function KpiCard({ label, value, delta, prev, pos, context, kpiPromptFn, t }) {
 
 // ── CHART HELPERS ─────────────────────────────────────────────
 
-
 function NoteTooltip({ active, payload, label, years, notes }) {
   if (!active || !payload || !payload.length) return null;
   const note = getNoteText(label, years || [], notes);
@@ -527,7 +442,7 @@ function ChartAllTime({ data, dataKey, title, sub, showEvery3, notes, yPadding }
       <ResponsiveContainer width="100%" height={240}>
         <LineChart data={serie}>
           <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
-          <XAxis dataKey="label" tick={<CustomXTickAllTime noteLabels={noteIndicesSerie.map(i => serie[i]?.label)} />} 
+          <XAxis dataKey="label" tick={<CustomXTickAllTime noteLabels={noteIndicesSerie.map(i => serie[i]?.label)} />}
             ticks={[
               ...serie.filter((_, i) => i % 6 === 0).map(d => d.label),
               ...noteIndicesSerie.map(i => serie[i]?.label)
@@ -698,7 +613,12 @@ export default function App() {
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {!isMobile && <div style={{ fontSize: 11, color: MUTED, background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 20, padding: "5px 14px" }}>{t.live}</div>}
+          {!isMobile && (
+            <a href={SHEET_URL} target="_blank" rel="noopener noreferrer" style={{
+              fontSize: 11, color: MUTED, background: "#fff", border: `1px solid ${BORDER}`,
+              borderRadius: 20, padding: "5px 14px", textDecoration: "none", cursor: "pointer"
+            }}>{t.live}</a>
+          )}
           <LangToggle lang={lang} setLang={setLang} />
         </div>
       </div>
@@ -726,7 +646,6 @@ export default function App() {
       {/* ── TAB KPI ── */}
       {tab === "kpi" && (
         <>
-          {/* 4 KPI summary cards */}
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: "2rem" }}>
             {t.kpis.map(k => {
               const s = summary[k.key];
@@ -741,8 +660,6 @@ export default function App() {
               );
             })}
           </div>
-
-          {/* KPI cards con AI */}
           <div style={gridStyle}>
             {t.kpis.map(k => {
               const s = summary[k.key];
@@ -810,7 +727,7 @@ export default function App() {
       {tab === "chat" && <ChatBot summary={summary} t={t} />}
 
       <div style={{ marginTop: "2.5rem", textAlign: "center", fontSize: 11, color: MUTED, borderTop: `1px solid ${BORDER}`, paddingTop: "1.5rem" }}>
-        MyLugano · {lang === "it" ? "Città di Lugano" : "City of Lugano"} · {lang === "it" ? "Dati demo" : "Demo data"}
+        MyLugano · {lang === "it" ? "Città di Lugano" : "City of Lugano"} · Live data from Google Sheets
       </div>
     </div>
   );
