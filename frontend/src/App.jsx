@@ -527,7 +527,12 @@ function ChartAllTime({ data, dataKey, title, sub, showEvery3, notes, yPadding }
       <ResponsiveContainer width="100%" height={240}>
         <LineChart data={serie}>
           <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
-          <XAxis dataKey="label" tick={<CustomXTickAllTime noteLabels={noteIndicesSerie.map(i => serie[i]?.label)} />} interval={5} height={noteIndicesSerie.length > 0 ? 40 : 20} />
+          <XAxis dataKey="label" tick={<CustomXTickAllTime noteLabels={noteIndicesSerie.map(i => serie[i]?.label)} />} 
+            ticks={[
+              ...serie.filter((_, i) => i % 6 === 0).map(d => d.label),
+              ...noteIndicesSerie.map(i => serie[i]?.label)
+            ].filter((v, i, arr) => arr.indexOf(v) === i)}
+            height={noteIndicesSerie.length > 0 ? 40 : 20} />
           <YAxis tickFormatter={v => v ? (v / 1000).toFixed(0) + "k" : ""} tick={{ fontSize: 10 }} domain={yMax ? [0, yMax] : ['auto', 'auto']} />
           <Tooltip content={({ active, payload }) => {
             if (!active || !payload || !payload.length) return null;
