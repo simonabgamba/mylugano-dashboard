@@ -16,12 +16,38 @@ import os
 import json
 import tempfile
 import base64
+from datetime import datetime, timedelta
 
 app = FastAPI(title="MyLugano KPI API", version="1.0")
 
+# ─────────────────────────────────────────
+# CACHE (10 minuti)
+# ─────────────────────────────────────────
+_cache_data = None
+_cache_mesi = None
+_cache_time = None
+CACHE_TTL = timedelta(minutes=10)
+
+def get_cached_sheet():
+    global _cache_data, _cache_mesi, _cache_time
+    now = datetime.now()
+    if _cache_data is not None and _cache_time is not None and now - _cache_time < CACHE_TTL:
+        return _cache_data, _cache_mesi
+    _cache_data, _cache_mesi = parse_sheet()
+    _cache_time = now
+    return _cache_data, _cache_mesi
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "https://mylugano-dashboard.vercel.app",
+        "https://*.vercel.app",
+        "https://jade-lolly-be9687.netlify.app",
+        "https://myluganodashboard.netlify.app",
+        "https://*.netlify.app",
+    ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -158,7 +184,7 @@ async def chat(req: ChatRequest):
 @app.get("/api/users")
 def get_users(anno: Optional[int] = None):
     try:
-        data, mesi = parse_sheet()
+        data, mesi = get_cached_sheet()
         utenti      = get_serie(data, "Utenti", "Utenti", "Numero account")
         wallet      = get_serie(data, "Utenti", "Wallet Attivi", "Totale Wallet Attivi")
         base        = get_serie(data, "Utenti", "Wallet Attivi", "Profilo base")
@@ -186,7 +212,7 @@ def get_users(anno: Optional[int] = None):
 @app.get("/api/revenue")
 def get_revenue(anno: Optional[int] = None):
     try:
-        data, mesi = parse_sheet()
+        data, mesi = get_cached_sheet()
         incassi_tot   = get_serie(data, "Circuito", "Tutte le attività", "Totale CHF incassati")
         cashback_tot  = get_serie(data, "Circuito", "Tutte le attività", "Totale cashback in CHF emesso")
         incassi_priv  = get_serie(data, "Partner/Merchant", "Attività economiche private", "Totale CHF incassati attività economiche private")
@@ -210,7 +236,7 @@ def get_revenue(anno: Optional[int] = None):
 @app.get("/api/partners")
 def get_partners(anno: Optional[int] = None):
     try:
-        data, mesi = parse_sheet()
+        data, mesi = get_cached_sheet()
         partner_tot    = get_serie(data, "Partner/Merchant", "Partner", "Totale Partner")
         partner_attivi = get_serie(data, "Partner/Merchant", "Partner", "Partner attivi")
         circolante     = get_serie(data, "Circuito", "Circolante", "Circolante in CHF")
@@ -232,7 +258,7 @@ def get_partners(anno: Optional[int] = None):
 @app.get("/api/transactions")
 def get_transactions(anno: Optional[int] = None):
     try:
-        data, mesi = parse_sheet()
+        data, mesi = get_cached_sheet()
         transazioni = get_serie(data, "Circuito", "Totale transazioni", "Numero di transazioni")
         records = []
         for mese_str in mesi:
@@ -250,7 +276,7 @@ def get_transactions(anno: Optional[int] = None):
 @app.get("/api/downloads")
 def get_downloads(anno: Optional[int] = None):
     try:
-        data, mesi = parse_sheet()
+        data, mesi = get_cached_sheet()
         dl_tot     = get_serie(data, "App", "Download TOTALI", "IOS + Android")
         dl_ios     = get_serie(data, "App", "Download TOTALI", "Download cumulativo (iOS)")
         dl_android = get_serie(data, "App", "Download TOTALI", "Download cumulativo (Android)")
@@ -272,7 +298,7 @@ def get_downloads(anno: Optional[int] = None):
 @app.get("/api/summary")
 def get_summary():
     try:
-        data, mesi = parse_sheet()
+        data, mesi = get_cached_sheet()
         ultimi = [m for m in reversed(mesi) if any(
             data.get(k, {}).get(m) for k in data
         )][:2]
