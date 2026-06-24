@@ -447,7 +447,7 @@ function ChartLine({ data, dataKey, years, title, sub, yPadding, notes }) {
           <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
           <XAxis dataKey="mese" tick={<CustomXTick noteMesi={noteMesi} />} height={noteMesi.length > 0 ? 40 : 20} />
           <YAxis tickFormatter={v => v ? (v / 1000).toFixed(0) + "k" : ""} tick={{ fontSize: 10 }} domain={yMax ? [0, yMax] : ["auto", "auto"]} />
-          <Tooltip content={<NoteTooltip years={years} />} />
+          <Tooltip content={<NoteTooltip years={years} notes={notes} />} />
           {years.map(y => (
             <Line key={y} type="monotone" dataKey={"y" + y}
               stroke={YEAR_COLORS[y] || RED} strokeWidth={2}
@@ -474,7 +474,7 @@ function ChartBar({ data, dataKey, years, title, sub, notes }) {
           <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
           <XAxis dataKey="mese" tick={<CustomXTick noteMesi={noteMesi} />} height={noteMesi.length > 0 ? 40 : 20} />
           <YAxis tickFormatter={v => v ? (v / 1000).toFixed(0) + "k" : ""} tick={{ fontSize: 10 }} />
-          <Tooltip content={<NoteTooltip years={years} />} />
+          <Tooltip content={<NoteTooltip years={years} notes={notes} />} />
           {years.map(y => (
             <Bar key={y} dataKey={"y" + y} fill={YEAR_COLORS[y] || RED} name={String(y)} radius={[2, 2, 0, 0]} />
           ))}
