@@ -9,7 +9,7 @@ import {
 const RED="#d42f3a", RED_L="rgba(212,47,58,0.08)", GREEN="#1fa363";
 const MUTED="#7a7a8a", BORDER="#e8e8ee", DARK="#111118";
 const AMBER="#b45309", AMBER_L="rgba(180,83,9,0.08)";
-const YEAR_COLORS={2021:"#bbb",2022:"#999",2023:"#d4d4d4",2024:"#f5a5a8",2025:"#d42f3a",2026:"#7c3aed"};
+const YEAR_COLORS={2021:"#bbb",2022:"#888",2023:"#aaa",2024:"#e07b2a",2025:"#d42f3a",2026:"#7c3aed"};
 const MESI_ORDER=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const SHEET_URL="https://docs.google.com/spreadsheets/d/1gDvJPaOH3EJZ6-0eB9MyCOnQRxsYYcftP3LmJLzrmSg/edit?gid=1642375582#gid=1642375582";
 
@@ -24,6 +24,7 @@ const I18N = {
     tab_chat: "💬 Ask the data",
     filter: "Filter:",
     all: "All",
+    none: "None",
     actions: "3 key actions",
     analyzing: "Generating AI analysis...",
     ask_placeholder: "Ask a question about the data...",
@@ -58,6 +59,7 @@ Answer concisely and professionally in English.`,
     tab_chat: "💬 Chiedi ai dati",
     filter: "Filtra:",
     all: "Tutti",
+    none: "Nessuno",
     actions: "3 misure chiave",
     analyzing: "Generazione analisi AI...",
     ask_placeholder: "Scrivi una domanda sui dati...",
@@ -190,12 +192,13 @@ function YearFilter({ allYears, selected, onChange, t }) {
         return (
           <button key={y} onClick={() => {
             const next = active ? selected.filter(x => x !== y) : [...selected, y].sort();
-            if (next.length > 0) onChange(next);
+            onChange(next);
           }} style={{
             fontSize: 11, padding: "3px 10px", borderRadius: 12,
             border: `1.5px solid ${active ? color : BORDER}`,
-            background: active ? color + "22" : "#fff",
-            color: active ? color : MUTED, cursor: "pointer", fontWeight: active ? 600 : 400
+            background: active ? color + "33" : "#fff",
+            color: active ? color : "#aaa",
+            cursor: "pointer", fontWeight: active ? 700 : 400
           }}>{y}</button>
         );
       })}
@@ -203,6 +206,10 @@ function YearFilter({ allYears, selected, onChange, t }) {
         fontSize: 11, padding: "3px 10px", borderRadius: 12,
         border: `1px solid ${BORDER}`, background: "#fff", color: MUTED, cursor: "pointer"
       }}>{t.all}</button>
+      <button onClick={() => onChange([])} style={{
+        fontSize: 11, padding: "3px 10px", borderRadius: 12,
+        border: `1px solid ${BORDER}`, background: "#fff", color: MUTED, cursor: "pointer"
+      }}>{t.none || "Nessuno"}</button>
     </div>
   );
 }
@@ -347,7 +354,57 @@ function CustomXTickAllTime({ x, y, payload, noteLabels }) {
   );
 }
 
+function Leg({ color, label }) {
+  return (
+    <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: DARK, fontWeight: 500 }}>
+      <span style={{ width: 12, height: 12, borderRadius: 3, background: color, display: "inline-block", flexShrink: 0 }} />
+      {label}
+    </span>
+  );
+}
+
+function ExportBtn({ chartRef, title }) {
+  function doExport() {
+    const node = chartRef.current;
+    if (!node) return;
+    const svg = node.querySelector("svg");
+    if (!svg) return;
+    const serializer = new XMLSerializer();
+    const svgStr = serializer.serializeToString(svg);
+    const canvas = document.createElement("canvas");
+    const rect = svg.getBoundingClientRect();
+    canvas.width = rect.width * 2;
+    canvas.height = rect.height * 2;
+    const ctx2d = canvas.getContext("2d");
+    ctx2d.scale(2, 2);
+    const img = new Image();
+    const blob = new Blob([svgStr], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    img.onload = () => {
+      ctx2d.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      const link = document.createElement("a");
+      const date = new Date().toISOString().slice(0, 10);
+      const safeName = title.replace(/[^a-zA-Z0-9À-ÿ ]/g, "").trim().replace(/ +/g, "_");
+      link.download = `${safeName}_${date}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    };
+    img.src = url;
+  }
+  return (
+    <button onClick={doExport} style={{
+      marginTop: 12, fontSize: 11, color: MUTED, background: "none",
+      border: `1px solid ${BORDER}`, borderRadius: 8, padding: "4px 12px",
+      cursor: "pointer", display: "flex", alignItems: "center", gap: 6
+    }}>
+      <span>↓</span> Export PNG
+    </button>
+  );
+}
+
 function ChartLine({ data, dataKey, years, title, sub, yPadding, notes }) {
+  const chartRef = useRef(null);
   const pivoted = pivotByMese(data, dataKey, years);
   const noteMesi = pivoted.filter(row => hasNote(row.mese, years, notes)).map(r => r.mese);
   const allVals = pivoted.flatMap(row => years.map(y => row["y"+y]).filter(Boolean));
@@ -356,45 +413,58 @@ function ChartLine({ data, dataKey, years, title, sub, yPadding, notes }) {
   return (
     <Card>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{title}</div>
-      {sub && <div style={{ fontSize: 11, color: MUTED, marginBottom: 12 }}>{sub}</div>}
-      <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={pivoted} margin={{ bottom: noteMesi.length > 0 ? 16 : 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
-          <XAxis dataKey="mese" tick={<CustomXTick noteMesi={noteMesi} />} height={noteMesi.length > 0 ? 40 : 20} />
-          <YAxis tickFormatter={v => v ? (v / 1000).toFixed(0) + "k" : ""} tick={{ fontSize: 10 }} domain={yMax ? [0, yMax] : ["auto", "auto"]} />
-          <Tooltip content={<NoteTooltip years={years} notes={notes} />} />
-          {years.map(y => (
-            <Line key={y} type="monotone" dataKey={"y" + y}
-              stroke={YEAR_COLORS[y] || RED} strokeWidth={2}
-              dot={<CustomDot pivoted={pivoted} dataKey={"y" + y} />}
-              name={String(y)} connectNulls={false}
-              strokeDasharray={y === new Date().getFullYear() ? "4 2" : undefined}
-            />
-          ))}
-        </LineChart>
-      </ResponsiveContainer>
+      {sub && <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>{sub}</div>}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+        {years.map(y => <Leg key={y} color={YEAR_COLORS[y] || RED} label={y} />)}
+      </div>
+      <div ref={chartRef}>
+        <ResponsiveContainer width="100%" height={240}>
+          <LineChart data={pivoted} margin={{ bottom: noteMesi.length > 0 ? 16 : 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
+            <XAxis dataKey="mese" tick={<CustomXTick noteMesi={noteMesi} />} height={noteMesi.length > 0 ? 40 : 20} />
+            <YAxis tickFormatter={v => v ? (v / 1000).toFixed(0) + "k" : ""} tick={{ fontSize: 10 }} domain={yMax ? [0, yMax] : ["auto", "auto"]} />
+            <Tooltip content={<NoteTooltip years={years} notes={notes} />} />
+            {years.map(y => (
+              <Line key={y} type="monotone" dataKey={"y" + y}
+                stroke={YEAR_COLORS[y] || RED} strokeWidth={2}
+                dot={<CustomDot pivoted={pivoted} dataKey={"y" + y} />}
+                name={String(y)} connectNulls={false}
+                strokeDasharray={y === new Date().getFullYear() ? "4 2" : undefined}
+              />
+            ))}
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <ExportBtn chartRef={chartRef} title={title} />
     </Card>
   );
 }
 
 function ChartBar({ data, dataKey, years, title, sub, notes }) {
+  const chartRef = useRef(null);
   const pivoted = pivotByMese(data, dataKey, years);
   const noteMesi = pivoted.filter(row => hasNote(row.mese, years, notes)).map(r => r.mese);
   return (
     <Card>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{title}</div>
-      {sub && <div style={{ fontSize: 11, color: MUTED, marginBottom: 12 }}>{sub}</div>}
-      <ResponsiveContainer width="100%" height={240}>
-        <BarChart data={pivoted} barSize={Math.max(3, Math.floor(18 / years.length))} margin={{ bottom: noteMesi.length > 0 ? 16 : 0 }}>
-          <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
-          <XAxis dataKey="mese" tick={<CustomXTick noteMesi={noteMesi} />} height={noteMesi.length > 0 ? 40 : 20} />
-          <YAxis tickFormatter={v => v ? (v / 1000).toFixed(0) + "k" : ""} tick={{ fontSize: 10 }} />
-          <Tooltip content={<NoteTooltip years={years} notes={notes} />} />
-          {years.map(y => (
-            <Bar key={y} dataKey={"y" + y} fill={YEAR_COLORS[y] || RED} name={String(y)} radius={[2, 2, 0, 0]} />
-          ))}
-        </BarChart>
-      </ResponsiveContainer>
+      {sub && <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>{sub}</div>}
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+        {years.map(y => <Leg key={y} color={YEAR_COLORS[y] || RED} label={y} />)}
+      </div>
+      <div ref={chartRef}>
+        <ResponsiveContainer width="100%" height={240}>
+          <BarChart data={pivoted} barSize={Math.max(3, Math.floor(18 / years.length))} margin={{ bottom: noteMesi.length > 0 ? 16 : 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
+            <XAxis dataKey="mese" tick={<CustomXTick noteMesi={noteMesi} />} height={noteMesi.length > 0 ? 40 : 20} />
+            <YAxis tickFormatter={v => v ? (v / 1000).toFixed(0) + "k" : ""} tick={{ fontSize: 10 }} />
+            <Tooltip content={<NoteTooltip years={years} notes={notes} />} />
+            {years.map(y => (
+              <Bar key={y} dataKey={"y" + y} fill={YEAR_COLORS[y] || RED} name={String(y)} radius={[2, 2, 0, 0]} />
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <ExportBtn chartRef={chartRef} title={title} />
     </Card>
   );
 }
@@ -579,7 +649,7 @@ export default function App() {
         setDl(d.filter(d => d.anno >= 2021 && Number.isInteger(d.anno)));
         setNotes(n || {});
         const yrs = [...new Set(u.map(d => d.anno))].filter(y => Number.isInteger(y) && y >= 2021).sort();
-        setSelYears(yrs.slice(-3));
+        setSelYears(yrs.slice(-1));
       } catch(e) {
         setError("Cannot connect to API.");
       } finally {
