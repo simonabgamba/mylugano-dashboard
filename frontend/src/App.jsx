@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   LineChart, Line, BarChart, Bar, ComposedChart,
   XAxis, YAxis, CartesianGrid, Tooltip,
@@ -362,6 +362,26 @@ function CustomXTickAllTime({ x, y, payload, noteLabels }) {
   );
 }
 
+function calcTrendPct(serie, key) {
+  const vals = serie.map(d => d[key]).filter(v => v != null && v > 0);
+  if (vals.length < 2) return null;
+  const first = vals[0];
+  const last = vals[vals.length - 1];
+  return Math.round((last - first) / first * 100);
+}
+
+function TrendEndLabel({ points, color, pct }) {
+  if (!points || points.length === 0 || pct === null) return null;
+  const last = points[points.length - 1];
+  if (!last || last.x == null || last.y == null) return null;
+  const sign = pct >= 0 ? "+" : "";
+  return (
+    <text x={last.x + 6} y={last.y} textAnchor="start" fontSize={9} fontWeight={700} fill={color}>
+      {sign}{pct}%
+    </text>
+  );
+}
+
 function CustomBarLabel(props) {
   const { x, y, width, value } = props;
   if (!value || value <= 0) return null;
@@ -385,30 +405,62 @@ function ExportBtn({ chartRef, title, compact }) {
   function doExport() {
     const node = chartRef.current;
     if (!node) return;
-    const svg = node.querySelector("svg");
-    if (!svg) return;
-    const serializer = new XMLSerializer();
-    const svgStr = serializer.serializeToString(svg);
+    const rect = node.getBoundingClientRect();
+    const scale = 2;
     const canvas = document.createElement("canvas");
-    const rect = svg.getBoundingClientRect();
-    canvas.width = rect.width * 2;
-    canvas.height = rect.height * 2;
+    canvas.width = rect.width * scale;
+    canvas.height = rect.height * scale;
     const ctx2d = canvas.getContext("2d");
-    ctx2d.scale(2, 2);
-    const img = new Image();
-    const blob = new Blob([svgStr], { type: "image/svg+xml" });
-    const url = URL.createObjectURL(blob);
-    img.onload = () => {
-      ctx2d.drawImage(img, 0, 0);
-      URL.revokeObjectURL(url);
+    ctx2d.scale(scale, scale);
+    // White background
+    ctx2d.fillStyle = "#ffffff";
+    ctx2d.fillRect(0, 0, rect.width, rect.height);
+    // Use html2canvas approach via SVG foreignObject
+    const svgs = node.querySelectorAll("svg");
+    if (svgs.length === 0) return;
+    // Serialize all SVGs and compose
+    const promises = Array.from(svgs).map(svg => {
+      return new Promise(resolve => {
+        const serializer = new XMLSerializer();
+        const svgStr = serializer.serializeToString(svg);
+        const svgRect = svg.getBoundingClientRect();
+        const offsetX = svgRect.left - rect.left;
+        const offsetY = svgRect.top - rect.top;
+        const img = new Image();
+        const blob = new Blob([svgStr], { type: "image/svg+xml" });
+        const url = URL.createObjectURL(blob);
+        img.onload = () => {
+          ctx2d.drawImage(img, offsetX, offsetY, svgRect.width, svgRect.height);
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = url;
+      });
+    });
+    // Also draw text nodes
+    Promise.all(promises).then(() => {
+      // Draw text content from non-SVG elements
+      const textEls = node.querySelectorAll("div, span, p");
+      textEls.forEach(el => {
+        const elRect = el.getBoundingClientRect();
+        if (elRect.width === 0 || elRect.height === 0) return;
+        const style = window.getComputedStyle(el);
+        const text = el.innerText?.trim();
+        if (!text || el.querySelector("div, span")) return;
+        const x = elRect.left - rect.left;
+        const y = elRect.top - rect.top;
+        ctx2d.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`;
+        ctx2d.fillStyle = style.color;
+        ctx2d.fillText(text, x, y + parseFloat(style.fontSize));
+      });
       const link = document.createElement("a");
       const date = new Date().toISOString().slice(0, 10);
       const safeName = title.replace(/[^a-zA-Z0-9À-ÿ ]/g, "").trim().replace(/ +/g, "_");
       link.download = `${safeName}_${date}.png`;
       link.href = canvas.toDataURL("image/png");
       link.click();
-    };
-    img.src = url;
+    });
   }
   return (
     <button onClick={doExport} style={{
@@ -444,11 +496,12 @@ function buildQuarterly(data) {
     .map(([label, valore]) => ({ label, valore: Math.round(valore) }));
 }
 
-function ChartNuoviUtenti({ data, title, lang, kpiPromptFn, t }) {
+function ChartNuoviUtenti({ data, years, title, lang, kpiPromptFn, t }) {
   const chartRef = useRef(null);
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
-  const serie = buildQuarterly(data);
+  const filteredData = years && years.length > 0 ? data.filter(d => years.includes(d.anno)) : data;
+  const serie = buildQuarterly(filteredData);
 
   useEffect(() => {
     if (!serie.length) return;
@@ -465,8 +518,8 @@ function ChartNuoviUtenti({ data, title, lang, kpiPromptFn, t }) {
   }, [lang, data]);
 
   return (
-    <Card style={{ gridColumn: "1 / -1", marginBottom: 14 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{title}</div>
+    <Card style={{ gridColumn: "1 / -1", marginBottom: 14 }} exportRef={chartRef} exportTitle={title}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12, paddingRight: 60 }}>{title}</div>
       <div ref={chartRef}>
         <ResponsiveContainer width="100%" height={220}>
           <ComposedChart data={serie.map((d, i) => {
@@ -540,20 +593,57 @@ function ChartLine({ data, dataKey, years, title, sub, yPadding, notes }) {
             <XAxis dataKey="mese" tick={<CustomXTick noteMesi={noteMesi} />} height={noteMesi.length > 0 ? 40 : 20} />
             <YAxis tickFormatter={v => v ? (v / 1000).toFixed(0) + "k" : ""} tick={{ fontSize: 10 }} domain={yMax ? [0, yMax] : ["auto", "auto"]} />
             <Tooltip content={<NoteTooltip years={years} notes={notes} />} />
-            {years.map(y => (
-              <Line key={y} type="monotone" dataKey={"y" + y}
-                stroke={YEAR_COLORS[y] || RED} strokeWidth={2}
-                dot={<CustomDot pivoted={pivoted} dataKey={"y" + y} />}
-                name={String(y)} connectNulls={false}
-                strokeDasharray={y === new Date().getFullYear() ? "4 2" : undefined}
-              >
-                <LabelList dataKey={"y" + y} content={(props) => {
-                  const { x, y: ly, value } = props;
-                  if (!value) return null;
-                  return <text x={x} y={ly - 6} textAnchor="middle" fontSize={8} fill={YEAR_COLORS[y] || RED} fontWeight={600}>{value >= 1000 ? (value/1000).toFixed(0)+"k" : value}</text>;
-                }} />
-              </Line>
-            ))}
+            {years.map(y => {
+              const trendKey = "trend_" + y;
+              const n = pivoted.length;
+              const xMean = (n-1)/2;
+              const vals = pivoted.map(r => r["y"+y]);
+              const validVals = vals.filter(v => v != null);
+              if (validVals.length < 2) return (
+                <Line key={y} type="monotone" dataKey={"y"+y}
+                  stroke={YEAR_COLORS[y]||RED} strokeWidth={2}
+                  dot={<CustomDot pivoted={pivoted} dataKey={"y"+y} />}
+                  name={String(y)} connectNulls={false}
+                  strokeDasharray={y===new Date().getFullYear()?"4 2":undefined}
+                >
+                  <LabelList dataKey={"y"+y} content={(props) => {
+                    const {x,y:ly,value}=props;
+                    if(!value)return null;
+                    return <text x={x} y={ly-6} textAnchor="middle" fontSize={8} fill={YEAR_COLORS[y]||RED} fontWeight={600}>{value>=1000?(value/1000).toFixed(0)+"k":value}</text>;
+                  }} />
+                </Line>
+              );
+              const yMean = validVals.reduce((s,v)=>s+v,0)/validVals.length;
+              const num = pivoted.reduce((s,r,i)=> r["y"+y]!=null ? s+(i-xMean)*(r["y"+y]-yMean) : s, 0);
+              const den = pivoted.reduce((s,r,i)=> r["y"+y]!=null ? s+(i-xMean)**2 : s, 0);
+              const slope = den ? num/den : 0;
+              const intercept = yMean - slope*xMean;
+              pivoted.forEach((r,i)=>{ r[trendKey] = r["y"+y]!=null ? Math.round(slope*i+intercept) : null; });
+              const firstV = validVals[0];
+              const lastV = validVals[validVals.length-1];
+              const trendPct = firstV ? Math.round((lastV-firstV)/firstV*100) : null;
+              return (
+                <React.Fragment key={y}>
+                  <Line type="monotone" dataKey={"y"+y}
+                    stroke={YEAR_COLORS[y]||RED} strokeWidth={2}
+                    dot={<CustomDot pivoted={pivoted} dataKey={"y"+y} />}
+                    name={String(y)} connectNulls={false}
+                    strokeDasharray={y===new Date().getFullYear()?"4 2":undefined}
+                  >
+                    <LabelList dataKey={"y"+y} content={(props) => {
+                      const {x,y:ly,value}=props;
+                      if(!value)return null;
+                      return <text x={x} y={ly-6} textAnchor="middle" fontSize={8} fill={YEAR_COLORS[y]||RED} fontWeight={600}>{value>=1000?(value/1000).toFixed(0)+"k":value}</text>;
+                    }} />
+                  </Line>
+                  <Line type="linear" dataKey={trendKey}
+                    stroke={YEAR_COLORS[y]||RED} strokeWidth={1} dot={false}
+                    strokeDasharray="4 2" strokeOpacity={0.5} name={"trend_"+y} connectNulls={false}
+                    label={<TrendEndLabel pct={trendPct} color={YEAR_COLORS[y]||RED} />}
+                  />
+                </React.Fragment>
+              );
+            })}
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -627,36 +717,52 @@ function ChartAllTime({ data, dataKey, title, sub, showEvery3, notes, yPadding }
     return acc;
   }, []) : [];
   const noteIndicesSerie = noteKeys;
+  const chartRef = useRef(null);
+  const n = serie.length;
+  const xMean = (n-1)/2;
+  const yMeanT = n ? serie.reduce((s,d)=>s+d.valore,0)/n : 0;
+  const numT = serie.reduce((s,d,i)=>s+(i-xMean)*(d.valore-yMeanT),0);
+  const denT = serie.reduce((s,d,i)=>s+(i-xMean)**2,0);
+  const slopeT = denT ? numT/denT : 0;
+  const interceptT = yMeanT - slopeT*xMean;
+  const serieWithTrend = serie.map((d,i) => ({ ...d, trend: Math.round(slopeT*i+interceptT) }));
+  const trendPct = n >= 2 ? Math.round((serieWithTrend[n-1].trend - serieWithTrend[0].trend) / serieWithTrend[0].trend * 100) : null;
   return (
-    <Card>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{title}</div>
+    <Card exportRef={chartRef} exportTitle={title}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, paddingRight: 60 }}>{title}</div>
       {sub && <div style={{ fontSize: 11, color: MUTED, marginBottom: 16 }}>{sub}</div>}
-      <ResponsiveContainer width="100%" height={240}>
-        <LineChart data={serie}>
-          <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
-          <XAxis dataKey="label" tick={<CustomXTickAllTime noteLabels={noteIndicesSerie.map(i => serie[i]?.label)} />}
-            ticks={[
-              ...serie.filter((_, i) => i % 6 === 0).map(d => d.label),
-              ...noteIndicesSerie.map(i => serie[i]?.label)
-            ].filter((v, i, arr) => arr.indexOf(v) === i)}
-            height={noteIndicesSerie.length > 0 ? 40 : 20} />
-          <YAxis tickFormatter={v => v ? (v / 1000).toFixed(0) + "k" : ""} tick={{ fontSize: 10 }} domain={yMax ? [0, yMax] : ['auto', 'auto']} />
-          <Tooltip content={({ active, payload }) => {
-            if (!active || !payload || !payload.length) return null;
-            const d = payload[0]?.payload;
-            const note = notes && d && notes[d.mese + "-" + d.anno];
-            return (
-              <div style={{ background: "#fff", border: "1px solid " + BORDER, borderRadius: 10, padding: "10px 14px", fontSize: 12, maxWidth: 220 }}>
-                <div style={{ fontWeight: 600, marginBottom: 4 }}>{d?.label}</div>
-                <div style={{ color: RED }}>{payload[0]?.value?.toLocaleString()}</div>
-                {note && <div style={{ marginTop: 8, color: MUTED, fontSize: 11, borderTop: "1px solid " + BORDER, paddingTop: 6 }}>ⓘ {d?.mese} {d?.anno}: {note}</div>}
-              </div>
-            );
-          }} />
-          <Line type="monotone" dataKey="valore" stroke={RED} strokeWidth={2}
-            dot={<CustomDotAllTime serie={serie} showEvery3={showEvery3} noteKeys={noteKeys} />} />
-        </LineChart>
-      </ResponsiveContainer>
+      <div ref={chartRef}>
+        <ResponsiveContainer width="100%" height={240}>
+          <LineChart data={serieWithTrend}>
+            <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
+            <XAxis dataKey="label" tick={<CustomXTickAllTime noteLabels={noteIndicesSerie.map(i => serie[i]?.label)} />}
+              ticks={[
+                ...serie.filter((_, i) => i % 6 === 0).map(d => d.label),
+                ...noteIndicesSerie.map(i => serie[i]?.label)
+              ].filter((v, i, arr) => arr.indexOf(v) === i)}
+              height={noteIndicesSerie.length > 0 ? 40 : 20} />
+            <YAxis tickFormatter={v => v ? (v / 1000).toFixed(0) + "k" : ""} tick={{ fontSize: 10 }} domain={yMax ? [0, yMax] : ['auto', 'auto']} />
+            <Tooltip content={({ active, payload }) => {
+              if (!active || !payload || !payload.length) return null;
+              const d = payload[0]?.payload;
+              const note = notes && d && notes[d.mese + "-" + d.anno];
+              return (
+                <div style={{ background: "#fff", border: "1px solid " + BORDER, borderRadius: 10, padding: "10px 14px", fontSize: 12, maxWidth: 220 }}>
+                  <div style={{ fontWeight: 600, marginBottom: 4 }}>{d?.label}</div>
+                  <div style={{ color: RED }}>{payload[0]?.value?.toLocaleString()}</div>
+                  {note && <div style={{ marginTop: 8, color: MUTED, fontSize: 11, borderTop: "1px solid " + BORDER, paddingTop: 6 }}>ⓘ {d?.mese} {d?.anno}: {note}</div>}
+                </div>
+              );
+            }} />
+            <Line type="monotone" dataKey="valore" stroke={RED} strokeWidth={2}
+              dot={<CustomDotAllTime serie={serie} showEvery3={showEvery3} noteKeys={noteKeys} />} />
+            <Line type="linear" dataKey="trend" stroke={AMBER} strokeWidth={1.5} dot={false}
+              strokeDasharray="5 3" strokeOpacity={0.7} name="Trend"
+              label={<TrendEndLabel pct={trendPct} color={AMBER} />}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
     </Card>
   );
 }
@@ -870,9 +976,7 @@ export default function App() {
               );
             })}
           </div>
-          <div style={{ marginTop: 14 }}>
-            <ChartNuoviUtenti data={users} title={lang === "it" ? "Nuovi utenti per trimestre" : "New users per quarter"} lang={lang} kpiPromptFn={t.kpi_prompt} t={t} />
-          </div>
+
         </>
       )}
 
@@ -900,6 +1004,7 @@ export default function App() {
             <ChartLine data={downloads} dataKey="download_totali" years={selYears.filter(y => y >= 2025)}
               title={lang === "it" ? "Download cumulativi" : "Cumulative Downloads"} sub="iOS + Android" notes={notes} />
           </div>
+            <ChartNuoviUtenti data={users} years={selYears} title={lang === "it" ? "Nuovi utenti per trimestre" : "New users per quarter"} lang={lang} kpiPromptFn={t.kpi_prompt} t={t} />
         </>
       )}
 
