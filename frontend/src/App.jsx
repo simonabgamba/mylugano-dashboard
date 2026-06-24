@@ -262,6 +262,7 @@ function CustomDot(props) {
 function KpiCard({ label, value, delta, prev, pos, context, kpiPromptFn, t }) {
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
+  const chartRef = useRef(null);
 
   useEffect(() => {
     if (!context) return;
@@ -277,7 +278,7 @@ function KpiCard({ label, value, delta, prev, pos, context, kpiPromptFn, t }) {
   }, [label, context]);
 
   return (
-    <div style={{
+    <div ref={chartRef} style={{
       background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 16,
       padding: 20, position: "relative", overflow: "hidden"
     }}>
@@ -289,11 +290,6 @@ function KpiCard({ label, value, delta, prev, pos, context, kpiPromptFn, t }) {
           <div style={{ fontSize: 11, marginTop: 5, color: pos ? GREEN : RED, fontWeight: 500 }}>{delta}</div>
           <div style={{ fontSize: 10, marginTop: 3, color: MUTED }}>{prev}</div>
         </div>
-        <div style={{
-          width: 36, height: 36, borderRadius: 10, display: "flex", alignItems: "center",
-          justifyContent: "center", fontSize: 18, fontWeight: 700,
-          background: pos ? RED_L : "rgba(150,150,150,0.1)", color: pos ? RED : "#999", flexShrink: 0
-        }}>{pos ? "↑" : "↓"}</div>
       </div>
       <div style={{ height: 1, background: BORDER, marginBottom: 14 }} />
       {loading && <div style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>{t.analyzing}</div>}
@@ -318,6 +314,7 @@ function KpiCard({ label, value, delta, prev, pos, context, kpiPromptFn, t }) {
           </div>
         </>
       )}
+      <ExportBtn chartRef={chartRef} title={label} />
     </div>
   );
 }
