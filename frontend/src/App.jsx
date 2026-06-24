@@ -407,9 +407,7 @@ function NoteTooltip({ active, payload, label, years, notes }) {
       {payload.map((p, i) => p.value && (
         <div key={i} style={{ color: p.color, marginBottom: 2 }}>{p.name}: {p.value.toLocaleString()}</div>
       ))}
-      {note && years && years.map(y => notesObj && notesObj[`${label}-${y}`] ? (
-        <div key={y} style={{ marginTop: 8, color: MUTED, fontSize: 11, borderTop: `1px solid ${BORDER}`, paddingTop: 6 }}>ⓘ {label} {y}: {notesObj[`${label}-${y}`]}</div>
-      ) : null)}
+      {note && <div style={{ marginTop: 8, color: MUTED, fontSize: 11, borderTop: `1px solid ${BORDER}`, paddingTop: 6 }}>ⓘ {label} — {note}</div>}
     </div>
   );
 }
