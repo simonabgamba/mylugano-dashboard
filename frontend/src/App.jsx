@@ -150,9 +150,9 @@ async function callClaude(prompt, system = "") {
 
 // ── RESPONSIVE HOOK ──────────────────────────────────────────
 function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(window.innerWidth < 640);
+  const [isMobile, setIsMobile] = useState(window.innerWidth < 480);
   useEffect(() => {
-    const handler = () => setIsMobile(window.innerWidth < 640);
+    const handler = () => setIsMobile(window.innerWidth < 480);
     window.addEventListener("resize", handler);
     return () => window.removeEventListener("resize", handler);
   }, []);
@@ -160,13 +160,18 @@ function useIsMobile() {
 }
 
 // ── UI BASE ──────────────────────────────────────────────────
-function Card({ children, style = {} }) {
+function Card({ children, style = {}, exportRef, exportTitle }) {
   return (
     <div style={{
       background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 16,
       borderTop: `3px solid ${RED}`, padding: 20,
-      boxShadow: "0 1px 4px rgba(0,0,0,0.04)", ...style
+      boxShadow: "0 1px 4px rgba(0,0,0,0.04)", position: "relative", ...style
     }}>
+      {exportRef && exportTitle && (
+        <div style={{ position: "absolute", top: 12, right: 12 }}>
+          <ExportBtn chartRef={exportRef} title={exportTitle} compact={true} />
+        </div>
+      )}
       {children}
     </div>
   );
@@ -283,6 +288,9 @@ function KpiCard({ label, value, delta, prev, pos, context, kpiPromptFn, t }) {
       padding: 20, position: "relative", overflow: "hidden"
     }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: pos ? RED : "#ccc", borderRadius: "16px 16px 0 0" }} />
+      <div style={{ position: "absolute", top: 12, right: 12 }}>
+        <ExportBtn chartRef={chartRef} title={label} compact={true} />
+      </div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, marginTop: 4 }}>
         <div>
           <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>{label}</div>
@@ -314,7 +322,6 @@ function KpiCard({ label, value, delta, prev, pos, context, kpiPromptFn, t }) {
           </div>
         </>
       )}
-      <ExportBtn chartRef={chartRef} title={label} />
     </div>
   );
 }
@@ -374,7 +381,7 @@ function Leg({ color, label }) {
   );
 }
 
-function ExportBtn({ chartRef, title }) {
+function ExportBtn({ chartRef, title, compact }) {
   function doExport() {
     const node = chartRef.current;
     if (!node) return;
@@ -405,11 +412,15 @@ function ExportBtn({ chartRef, title }) {
   }
   return (
     <button onClick={doExport} style={{
-      marginTop: 12, fontSize: 11, color: MUTED, background: "none",
-      border: `1px solid ${BORDER}`, borderRadius: 8, padding: "4px 12px",
-      cursor: "pointer", display: "flex", alignItems: "center", gap: 6
+      marginTop: compact ? 0 : 12,
+      fontSize: compact ? 10 : 11,
+      color: MUTED, background: "none",
+      border: `1px solid ${BORDER}`,
+      borderRadius: compact ? 6 : 8,
+      padding: compact ? "3px 8px" : "4px 12px",
+      cursor: "pointer", display: "flex", alignItems: "center", gap: 4
     }}>
-      <span>↓</span> Export PNG
+      <span>↓</span>{compact ? "PNG" : " Export PNG"}
     </button>
   );
 }
@@ -516,8 +527,8 @@ function ChartLine({ data, dataKey, years, title, sub, yPadding, notes }) {
   const maxVal = allVals.length ? Math.max(...allVals) : 0;
   const yMax = yPadding ? Math.ceil((maxVal + yPadding) / 10000) * 10000 : undefined;
   return (
-    <Card>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{title}</div>
+    <Card exportRef={chartRef} exportTitle={title}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, paddingRight: 60 }}>{title}</div>
       {sub && <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>{sub}</div>}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
         {years.map(y => <Leg key={y} color={YEAR_COLORS[y] || RED} label={y} />)}
@@ -535,12 +546,17 @@ function ChartLine({ data, dataKey, years, title, sub, yPadding, notes }) {
                 dot={<CustomDot pivoted={pivoted} dataKey={"y" + y} />}
                 name={String(y)} connectNulls={false}
                 strokeDasharray={y === new Date().getFullYear() ? "4 2" : undefined}
-              />
+              >
+                <LabelList dataKey={"y" + y} content={(props) => {
+                  const { x, y: ly, value } = props;
+                  if (!value) return null;
+                  return <text x={x} y={ly - 6} textAnchor="middle" fontSize={8} fill={YEAR_COLORS[y] || RED} fontWeight={600}>{value >= 1000 ? (value/1000).toFixed(0)+"k" : value}</text>;
+                }} />
+              </Line>
             ))}
           </LineChart>
         </ResponsiveContainer>
       </div>
-      <ExportBtn chartRef={chartRef} title={title} />
     </Card>
   );
 }
@@ -550,8 +566,8 @@ function ChartBar({ data, dataKey, years, title, sub, notes }) {
   const pivoted = pivotByMese(data, dataKey, years);
   const noteMesi = pivoted.filter(row => hasNote(row.mese, years, notes)).map(r => r.mese);
   return (
-    <Card>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4 }}>{title}</div>
+    <Card exportRef={chartRef} exportTitle={title}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 4, paddingRight: 60 }}>{title}</div>
       {sub && <div style={{ fontSize: 11, color: MUTED, marginBottom: 8 }}>{sub}</div>}
       <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
         {years.map(y => <Leg key={y} color={YEAR_COLORS[y] || RED} label={y} />)}
@@ -564,12 +580,13 @@ function ChartBar({ data, dataKey, years, title, sub, notes }) {
             <YAxis tickFormatter={v => v ? (v / 1000).toFixed(0) + "k" : ""} tick={{ fontSize: 10 }} />
             <Tooltip content={<NoteTooltip years={years} notes={notes} />} />
             {years.map(y => (
-              <Bar key={y} dataKey={"y" + y} fill={YEAR_COLORS[y] || RED} name={String(y)} radius={[2, 2, 0, 0]} />
+              <Bar key={y} dataKey={"y" + y} fill={YEAR_COLORS[y] || RED} name={String(y)} radius={[2, 2, 0, 0]}>
+                <LabelList dataKey={"y" + y} content={<CustomBarLabel />} />
+              </Bar>
             ))}
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <ExportBtn chartRef={chartRef} title={title} />
     </Card>
   );
 }
@@ -825,7 +842,7 @@ export default function App() {
             {t.kpis.map(k => {
               const s = summary[k.key];
               return (
-                <div key={k.key} style={{ background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 14, padding: "16px 18px", position: "relative", overflow: "hidden" }}>
+                <div key={k.key} style={{ background: "#fff", border: `1px solid ${BORDER}`, borderRadius: 14, padding: "16px 18px", position: "relative", overflow: "hidden", textAlign: "center" }}>
                   <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: RED, borderRadius: "14px 14px 0 0" }} />
                   <div style={{ fontSize: 10, color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>{k.label}</div>
                   <div style={{ fontSize: isMobile ? 18 : 22, fontWeight: 700, letterSpacing: -0.5 }}>{s?.valore?.toLocaleString()}</div>
