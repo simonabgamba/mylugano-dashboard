@@ -191,14 +191,25 @@ def get_users(anno: Optional[int] = None):
         verificato  = get_serie(data, "Utenti", "Wallet Attivi", "Profilo verificato")
         plus        = get_serie(data, "Utenti", "Wallet Attivi", "Profilo Plus")
         analogico   = get_serie(data, "Utenti", "Wallet Attivi", "Profilo analogico")
+        # Calcola delta utenti mese su mese
+        mesi_list = [m for m in mesi]
         records = []
-        for mese_str in mesi:
+        for i, mese_str in enumerate(mesi_list):
             m, y = mese_to_anno_mese(mese_str)
             if anno and y != anno:
                 continue
+            val_curr = utenti.get(mese_str)
+            # Cerca il mese precedente nella stessa serie
+            val_prev = None
+            if i > 0:
+                val_prev = utenti.get(mesi_list[i-1])
+            nuovi = None
+            if val_curr is not None and val_prev is not None and val_prev > 0:
+                nuovi = round(val_curr - val_prev)
             records.append({
                 "mese": m, "anno": y,
-                "utenti":              utenti.get(mese_str),
+                "utenti":              val_curr,
+                "nuovi_utenti":        nuovi,
                 "wallet_attivi":       wallet.get(mese_str),
                 "profilo_base":        base.get(mese_str),
                 "profilo_verificato":  verificato.get(mese_str),
