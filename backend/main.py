@@ -335,15 +335,23 @@ def get_summary():
 @app.get("/api/notes")
 def get_notes():
     try:
-        data, mesi = get_cached_sheet()
-        note_key = ("NOTE", "Note Generali", "Note del periodo")
-        note_serie = data.get(note_key, {})
+        df = get_dataframe()
+        headers = df.iloc[0].tolist()
+        mesi_cols = headers[3:]
+        note_row = None
+        for _, row in df.iterrows():
+            if str(row[0]).strip().upper() == "NOTE":
+                note_row = row
+                break
+        if note_row is None:
+            return {}
         result = {}
-        for mese_str, val in note_serie.items():
-            if val and str(val).strip():
+        for i, mese_str in enumerate(mesi_cols):
+            val = str(note_row[i+3]).strip() if note_row[i+3] is not None else ""
+            if val and val.lower() not in ["", "none", "nan"]:
                 m, y = mese_to_anno_mese(mese_str)
                 if m and y:
-                    result[f"{m}-{y}"] = str(val).strip()
+                    result[f"{m}-{y}"] = val
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
