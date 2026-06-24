@@ -754,7 +754,7 @@ export default function App() {
         setDl(d.filter(d => d.anno >= 2021 && Number.isInteger(d.anno)));
         setNotes(n || {});
         const yrs = [...new Set(u.map(d => d.anno))].filter(y => Number.isInteger(y) && y >= 2021).sort();
-        setSelYears(yrs.slice(-1));
+        setSelYears(yrs.slice(-2));
       } catch(e) {
         setError("Cannot connect to API.");
       } finally {
