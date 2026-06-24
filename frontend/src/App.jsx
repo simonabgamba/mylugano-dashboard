@@ -285,13 +285,11 @@ function KpiCard({ label, value, delta, prev, pos, context, kpiPromptFn, t }) {
   return (
     <Card exportTitle={label} style={{ overflow: "hidden" }}>
       <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: pos ? RED : "#ccc", borderRadius: "16px 16px 0 0" }} />
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 16, marginTop: 4 }}>
-        <div>
-          <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.07em", marginBottom: 6 }}>{label}</div>
-          <div style={{ fontSize: 26, fontWeight: 700, lineHeight: 1, letterSpacing: -1 }}>{value}</div>
-          <div style={{ fontSize: 11, marginTop: 5, color: pos ? GREEN : RED, fontWeight: 500 }}>{delta}</div>
-          <div style={{ fontSize: 10, marginTop: 3, color: MUTED }}>{prev}</div>
-        </div>
+      <div style={{ textAlign: "center", marginBottom: 16, marginTop: 8, paddingTop: 8 }}>
+        <div style={{ fontSize: 11, color: MUTED, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>{label}</div>
+        <div style={{ fontSize: 32, fontWeight: 700, lineHeight: 1, letterSpacing: -1, marginBottom: 8 }}>{value}</div>
+        <div style={{ fontSize: 13, color: pos ? GREEN : RED, fontWeight: 600, marginBottom: 4 }}>{delta}</div>
+        <div style={{ fontSize: 11, color: MUTED }}>{prev}</div>
       </div>
       <div style={{ height: 1, background: BORDER, marginBottom: 14 }} />
       {loading && <div style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>{t.analyzing}</div>}
