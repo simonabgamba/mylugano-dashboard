@@ -413,28 +413,24 @@ function ExportBtn({ chartRef, title }) {
   );
 }
 
-function ChartNuoviUtenti({ data, years, title, t }) {
+function ChartNuoviUtenti({ data, title }) {
   const chartRef = useRef(null);
-  const pivoted = pivotByMese(data, "nuovi_utenti", years);
-  const validYears = years.filter(y => pivoted.some(row => row["y"+y] != null && row["y"+y] > 0));
+  const serie = data
+    .filter(d => d.nuovi_utenti != null && d.nuovi_utenti > 0 && d.anno >= 2021)
+    .map(d => ({ label: d.mese + " " + d.anno, valore: d.nuovi_utenti }));
   return (
     <Card style={{ gridColumn: "1 / -1", marginBottom: 14 }}>
-      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{title}</div>
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-        {validYears.map(y => <Leg key={y} color={YEAR_COLORS[y] || RED} label={y} />)}
-      </div>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{title}</div>
       <div ref={chartRef}>
         <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={pivoted} barSize={Math.max(3, Math.floor(18 / Math.max(validYears.length, 1)))}>
+          <BarChart data={serie} barSize={10}>
             <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
-            <XAxis dataKey="mese" tick={{ fontSize: 10 }} />
+            <XAxis dataKey="label" tick={{ fontSize: 9 }} interval={5} />
             <YAxis tickFormatter={v => v ? v.toLocaleString() : ""} tick={{ fontSize: 10 }} />
             <Tooltip formatter={v => v ? v.toLocaleString() : "-"} />
-            {validYears.map(y => (
-              <Bar key={y} dataKey={"y"+y} fill={YEAR_COLORS[y] || RED} name={String(y)} radius={[2,2,0,0]}>
-                <LabelList dataKey={"y"+y} content={<CustomBarLabel />} />
-              </Bar>
-            ))}
+            <Bar dataKey="valore" fill={RED} radius={[2,2,0,0]}>
+              <LabelList dataKey="valore" content={<CustomBarLabel />} />
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
