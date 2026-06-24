@@ -785,11 +785,11 @@ export default function App() {
             title={lang === "it" ? "Utenti — storico completo" : "Users — full history"} sub="2021 →"
             showEvery3={true} notes={notes} yPadding={20000} />
           <ChartAllTime data={transactions} dataKey="transazioni"
-            title={lang === "it" ? "Transazioni — storico completo" : "Transactions — full history"} sub="2024 →" />
+            title={lang === "it" ? "Transazioni — storico completo" : "Transactions — full history"} sub="2024 →" notes={notes} />
           <ChartAllTime data={revenue} dataKey="incassi_chf"
-            title={lang === "it" ? "Ricavi CHF — storico completo" : "Revenue CHF — full history"} sub="2024 →" />
+            title={lang === "it" ? "Ricavi CHF — storico completo" : "Revenue CHF — full history"} sub="2024 →" notes={notes} />
           <ChartAllTime data={revenue} dataKey="cashback_chf"
-            title={lang === "it" ? "Cashback CHF — storico completo" : "Cashback CHF — full history"} sub="2024 →" />
+            title={lang === "it" ? "Cashback CHF — storico completo" : "Cashback CHF — full history"} sub="2024 →" notes={notes} />
         </div>
       )}
 
