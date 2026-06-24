@@ -331,3 +331,19 @@ def get_summary():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/notes")
+def get_notes():
+    try:
+        data, mesi = get_cached_sheet()
+        note_key = ("NOTE", "Note Generali", "Note del periodo")
+        note_serie = data.get(note_key, {})
+        result = {}
+        for mese_str, val in note_serie.items():
+            if val and str(val).strip():
+                m, y = mese_to_anno_mese(mese_str)
+                if m and y:
+                    result[f"{m}-{y}"] = str(val).strip()
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
