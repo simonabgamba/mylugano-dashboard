@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   LineChart, Line, BarChart, Bar,
   XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, ReferenceLine, Label
+  ResponsiveContainer, ReferenceLine, Label, LabelList
 } from "recharts";
 
 // ── COLORI ──────────────────────────────────────────────────
@@ -354,6 +354,16 @@ function CustomXTickAllTime({ x, y, payload, noteLabels }) {
   );
 }
 
+function CustomBarLabel(props) {
+  const { x, y, width, value } = props;
+  if (!value || value <= 0) return null;
+  return (
+    <text x={x + width / 2} y={y - 4} textAnchor="middle" fontSize={8} fontWeight={600} fill={MUTED}>
+      {value >= 1000 ? (value / 1000).toFixed(1) + "k" : value}
+    </text>
+  );
+}
+
 function Leg({ color, label }) {
   return (
     <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: DARK, fontWeight: 500 }}>
@@ -400,6 +410,36 @@ function ExportBtn({ chartRef, title }) {
     }}>
       <span>↓</span> Export PNG
     </button>
+  );
+}
+
+function ChartNuoviUtenti({ data, years, title, t }) {
+  const chartRef = useRef(null);
+  const pivoted = pivotByMese(data, "nuovi_utenti", years);
+  const validYears = years.filter(y => pivoted.some(row => row["y"+y] != null && row["y"+y] > 0));
+  return (
+    <Card style={{ gridColumn: "1 / -1", marginBottom: 14 }}>
+      <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 8 }}>{title}</div>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+        {validYears.map(y => <Leg key={y} color={YEAR_COLORS[y] || RED} label={y} />)}
+      </div>
+      <div ref={chartRef}>
+        <ResponsiveContainer width="100%" height={220}>
+          <BarChart data={pivoted} barSize={Math.max(3, Math.floor(18 / Math.max(validYears.length, 1)))}>
+            <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
+            <XAxis dataKey="mese" tick={{ fontSize: 10 }} />
+            <YAxis tickFormatter={v => v ? v.toLocaleString() : ""} tick={{ fontSize: 10 }} />
+            <Tooltip formatter={v => v ? v.toLocaleString() : "-"} />
+            {validYears.map(y => (
+              <Bar key={y} dataKey={"y"+y} fill={YEAR_COLORS[y] || RED} name={String(y)} radius={[2,2,0,0]}>
+                <LabelList dataKey={"y"+y} content={<CustomBarLabel />} />
+              </Bar>
+            ))}
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <ExportBtn chartRef={chartRef} title={title} />
+    </Card>
   );
 }
 
@@ -716,6 +756,9 @@ export default function App() {
       {/* ── TAB KPI ── */}
       {tab === "kpi" && (
         <>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: "1.5rem" }}>
+            <ChartNuoviUtenti data={users} years={allYears} title={lang === "it" ? "Nuovi utenti per mese" : "New users per month"} t={t} />
+          </div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: "2rem" }}>
             {t.kpis.map(k => {
               const s = summary[k.key];
