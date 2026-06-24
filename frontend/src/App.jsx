@@ -413,28 +413,85 @@ function ExportBtn({ chartRef, title }) {
   );
 }
 
-function ChartNuoviUtenti({ data, title }) {
+const MESE_TO_Q = {Jan:"Q1",Feb:"Q1",Mar:"Q1",Apr:"Q2",May:"Q2",Jun:"Q2",Jul:"Q3",Aug:"Q3",Sep:"Q3",Oct:"Q4",Nov:"Q4",Dec:"Q4"};
+
+function buildQuarterly(data) {
+  const map = {};
+  data.filter(d => d.nuovi_utenti != null && d.nuovi_utenti > 0 && d.anno >= 2021).forEach(d => {
+    const q = MESE_TO_Q[d.mese];
+    if (!q) return;
+    const key = q + " " + d.anno;
+    map[key] = (map[key] || 0) + d.nuovi_utenti;
+  });
+  return Object.entries(map)
+    .sort(([a], [b]) => {
+      const [qa, ya] = a.split(" ");
+      const [qb, yb] = b.split(" ");
+      return ya !== yb ? parseInt(ya) - parseInt(yb) : qa.localeCompare(qb);
+    })
+    .map(([label, valore]) => ({ label, valore: Math.round(valore) }));
+}
+
+function ChartNuoviUtenti({ data, title, lang, kpiPromptFn, t }) {
   const chartRef = useRef(null);
-  const serie = data
-    .filter(d => d.nuovi_utenti != null && d.nuovi_utenti > 0 && d.anno >= 2021)
-    .map(d => ({ label: d.mese + " " + d.anno, valore: d.nuovi_utenti }));
+  const [analysis, setAnalysis] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const serie = buildQuarterly(data);
+
+  useEffect(() => {
+    if (!serie.length) return;
+    setLoading(true);
+    const ctx = (lang === "it" ? "Nuovi utenti aggregati per trimestre: " : "New users per quarter: ") + serie.map(d => d.label + ": " + d.valore).join(", ");
+    const prompt = kpiPromptFn(lang === "it" ? "Nuovi utenti per trimestre" : "New users per quarter", ctx);
+    callClaude(prompt).then(text => {
+      try {
+        const clean = text.replace(/```json|```/g,"").trim();
+        setAnalysis(JSON.parse(clean));
+      } catch { setAnalysis(null); }
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, [lang, data]);
+
   return (
     <Card style={{ gridColumn: "1 / -1", marginBottom: 14 }}>
       <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 12 }}>{title}</div>
       <div ref={chartRef}>
         <ResponsiveContainer width="100%" height={220}>
-          <BarChart data={serie} barSize={10}>
+          <BarChart data={serie} barSize={22}>
             <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
-            <XAxis dataKey="label" tick={{ fontSize: 9 }} interval={5} />
+            <XAxis dataKey="label" tick={{ fontSize: 9 }} />
             <YAxis tickFormatter={v => v ? v.toLocaleString() : ""} tick={{ fontSize: 10 }} />
             <Tooltip formatter={v => v ? v.toLocaleString() : "-"} />
-            <Bar dataKey="valore" fill={RED} radius={[2,2,0,0]}>
+            <Bar dataKey="valore" fill={RED} radius={[3,3,0,0]}>
               <LabelList dataKey="valore" content={<CustomBarLabel />} />
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </div>
       <ExportBtn chartRef={chartRef} title={title} />
+      <div style={{ height: 1, background: BORDER, margin: "14px 0" }} />
+      {loading && <div style={{ fontSize: 12, color: MUTED, fontStyle: "italic" }}>{t.analyzing}</div>}
+      {analysis && (
+        <>
+          <div style={{ fontSize: 13, fontWeight: 600, lineHeight: 1.4, marginBottom: 8, color: DARK }}>{analysis.headline}</div>
+          <div style={{ fontSize: 12, color: MUTED, lineHeight: 1.65, marginBottom: analysis.anomalia ? 12 : 14 }}>{analysis.impatto}</div>
+          {analysis.anomalia && (
+            <div style={{ background: AMBER_L, border: "1px solid rgba(180,83,9,0.2)", borderRadius: 10, padding: "10px 14px", marginBottom: 12, display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <span style={{ fontSize: 14, flexShrink: 0 }}>⚠</span>
+              <div style={{ fontSize: 12, color: AMBER, lineHeight: 1.55, fontWeight: 500 }}>{analysis.anomalia}</div>
+            </div>
+          )}
+          <div style={{ fontSize: 9, fontWeight: 700, color: MUTED, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 8 }}>{t.actions}</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
+            {analysis.misure?.map((m, j) => (
+              <div key={j} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                <div style={{ width: 20, height: 20, borderRadius: 6, background: RED_L, fontSize: 10, fontWeight: 700, color: RED, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{j+1}</div>
+                <div style={{ fontSize: 12, lineHeight: 1.5, color: DARK }}>{m}</div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
     </Card>
   );
 }
@@ -753,7 +810,7 @@ export default function App() {
       {tab === "kpi" && (
         <>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 14, marginBottom: "1.5rem" }}>
-            <ChartNuoviUtenti data={users} years={allYears} title={lang === "it" ? "Nuovi utenti per mese" : "New users per month"} t={t} />
+            <ChartNuoviUtenti data={users} title={lang === "it" ? "Nuovi utenti per trimestre" : "New users per quarter"} lang={lang} kpiPromptFn={t.kpi_prompt} t={t} />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(4,1fr)", gap: 12, marginBottom: "2rem" }}>
             {t.kpis.map(k => {
