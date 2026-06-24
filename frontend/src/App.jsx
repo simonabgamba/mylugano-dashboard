@@ -407,7 +407,9 @@ function NoteTooltip({ active, payload, label, years, notes }) {
       {payload.map((p, i) => p.value && (
         <div key={i} style={{ color: p.color, marginBottom: 2 }}>{p.name}: {p.value.toLocaleString()}</div>
       ))}
-      {note && <div style={{ marginTop: 8, color: MUTED, fontSize: 11, borderTop: `1px solid ${BORDER}`, paddingTop: 6 }}>ⓘ {note}</div>}
+      {note && years && years.map(y => notesObj && notesObj[`${label}-${y}`] ? (
+        <div key={y} style={{ marginTop: 8, color: MUTED, fontSize: 11, borderTop: `1px solid ${BORDER}`, paddingTop: 6 }}>ⓘ {label} {y}: {notesObj[`${label}-${y}`]}</div>
+      ) : null)}
     </div>
   );
 }
@@ -529,9 +531,17 @@ function ChartAllTime({ data, dataKey, title, sub, showEvery3, notes, yPadding }
           <CartesianGrid strokeDasharray="3 3" stroke={BORDER} />
           <XAxis dataKey="label" tick={<CustomXTickAllTime noteLabels={noteIndicesSerie.map(i => serie[i]?.label)} />} interval={5} height={noteIndicesSerie.length > 0 ? 40 : 20} />
           <YAxis tickFormatter={v => v ? (v / 1000).toFixed(0) + "k" : ""} tick={{ fontSize: 10 }} domain={yMax ? [0, yMax] : ['auto', 'auto']} />
-          <Tooltip formatter={(v, name, p) => {
-            const note = notes && notes[serie[p.index]?.mese + "-" + serie[p.index]?.anno];
-            return [v ? v.toLocaleString() : "-", note ? "ⓘ " + note : undefined];
+          <Tooltip content={({ active, payload }) => {
+            if (!active || !payload || !payload.length) return null;
+            const d = payload[0]?.payload;
+            const note = notes && d && notes[d.mese + "-" + d.anno];
+            return (
+              <div style={{ background: "#fff", border: "1px solid " + BORDER, borderRadius: 10, padding: "10px 14px", fontSize: 12, maxWidth: 220 }}>
+                <div style={{ fontWeight: 600, marginBottom: 4 }}>{d?.label}</div>
+                <div style={{ color: RED }}>{payload[0]?.value?.toLocaleString()}</div>
+                {note && <div style={{ marginTop: 8, color: MUTED, fontSize: 11, borderTop: "1px solid " + BORDER, paddingTop: 6 }}>ⓘ {d?.mese} {d?.anno}: {note}</div>}
+              </div>
+            );
           }} />
           <Line type="monotone" dataKey="valore" stroke={RED} strokeWidth={2}
             dot={<CustomDotAllTime serie={serie} showEvery3={showEvery3} noteKeys={noteKeys} />} />
