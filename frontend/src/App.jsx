@@ -1037,7 +1037,7 @@ export default function App() {
       )}
 
       {/* ── TAB CHAT ── */}
-      {tab === "chat" && <ChatBot summary={summary} notes={notes} t={t} />}
+      {tab === "chat" && <ChatBot summary={summary} notes={notes} sheetContext={sheetContext} t={t} />}
 
       <div style={{ marginTop: "2.5rem", textAlign: "center", fontSize: 11, color: MUTED, borderTop: `1px solid ${BORDER}`, paddingTop: "1.5rem" }}>
         MyLugano · {lang === "it" ? "Città di Lugano" : "City of Lugano"} · Live data from Google Sheets
