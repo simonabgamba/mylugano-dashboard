@@ -387,8 +387,7 @@ def get_context():
                 lines.append(f"{kpi} | {categoria} | {dato}")
                 lines.append("  " + " | ".join(valori))
         
-        return {"context": "
-".join(lines)}
+        return {"context": "\n".join(lines)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
