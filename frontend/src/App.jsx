@@ -11,7 +11,7 @@ const MUTED="#7a7a8a", BORDER="#e8e8ee", DARK="#111118";
 const AMBER="#b45309", AMBER_L="rgba(180,83,9,0.08)";
 const YEAR_COLORS={2021:"#bbb",2022:"#888",2023:"#aaa",2024:"#e07b2a",2025:"#d42f3a",2026:"#7c3aed"};
 const MESI_ORDER=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const SHEET_URL="https://docs.google.com/spreadsheets/d/1gDvJPaOH3EJZ6-0eB9MyCOnQRxsYYcftP3LmJLzrmSg/edit?gid=1642375582#gid=1642375582";
+
 
 // ── I18N ────────────────────────────────────────────────────
 const I18N = {
@@ -851,13 +851,14 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notes, setNotes] = useState({});
+  const [sheetUrl, setSheetUrl] = useState("");
   const isMobile = useIsMobile();
   const t = I18N[lang];
 
   useEffect(() => {
     async function fetchAll() {
       try {
-        const [s, u, r, tx, d, n] = await Promise.all([
+        const [s, u, r, tx, d, n, cfg] = await Promise.all([
           fetch(`${API}/api/summary`).then(r => r.json()),
           fetch(`${API}/api/users`).then(r => r.json()),
           fetch(`${API}/api/revenue`).then(r => r.json()),
@@ -871,6 +872,7 @@ export default function App() {
         setTx(tx.filter(d => d.anno >= 2021 && Number.isInteger(d.anno)));
         setDl(d.filter(d => d.anno >= 2021 && Number.isInteger(d.anno)));
         setNotes(n || {});
+        setSheetUrl(cfg?.sheet_url || "");
         const yrs = [...new Set(u.map(d => d.anno))].filter(y => Number.isInteger(y) && y >= 2021).sort();
         setSelYears(yrs.slice(-2));
       } catch(e) {
@@ -907,7 +909,7 @@ export default function App() {
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           {!isMobile && (
-            <a href={SHEET_URL} target="_blank" rel="noopener noreferrer" style={{
+            <a href={sheetUrl} target="_blank" rel="noopener noreferrer" style={{
               fontSize: 11, color: MUTED, background: "#fff", border: `1px solid ${BORDER}`,
               borderRadius: 20, padding: "5px 14px", textDecoration: "none", cursor: "pointer"
             }}>{t.live}</a>
