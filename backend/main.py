@@ -162,6 +162,8 @@ class ChatRequest(BaseModel):
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     try:
+        # Truncate system prompt if too long (max ~80k chars to stay under token limits)
+        system = req.system[:80000] if len(req.system) > 80000 else req.system
         async with httpx.AsyncClient() as client:
             res = await client.post(
                 "https://api.anthropic.com/v1/messages",
@@ -172,11 +174,11 @@ async def chat(req: ChatRequest):
                 },
                 json={
                     "model": "claude-sonnet-4-5",
-                    "max_tokens": 800,
-                    "system": req.system,
+                    "max_tokens": 1000,
+                    "system": system,
                     "messages": [{"role": "user", "content": req.prompt}]
                 },
-                timeout=30.0
+                timeout=60.0
             )
         data = res.json()
         content = data.get("content", [])
