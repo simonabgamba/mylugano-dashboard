@@ -47,8 +47,16 @@ ${notes && Object.keys(notes).length > 0 ? "Team notes: " + Object.entries(notes
 Analyze this KPI and respond ONLY with valid JSON, no markdown:
 {"headline":"one sentence max 12 words","impatto":"one sentence max 20 words","anomalia":"one sentence on any anomaly or null if none","misure":["action 1 max 8 words","action 2 max 8 words","action 3 max 8 words"]}
 KPI: ${label}. Data: ${ctx}`,
-    system_prompt: (s, notes) => `You are a senior data analyst for MyLugano, the digital wallet and cashback platform of the City of Lugano, Switzerland.
-Current data: Users ${s?.utenti?.valore?.toLocaleString()} (${s?.utenti?.delta_pct}% MoM), Active wallets ${s?.wallet_attivi?.valore?.toLocaleString()}, Partners ${s?.partner_totali?.valore}, Circulating CHF ${s?.circolante_chf?.valore?.toLocaleString()}.
+    system_prompt: (s, notes, users, revenue, transactions, downloads) => `You are a senior data analyst for MyLugano, the digital wallet and cashback platform of the City of Lugano, Switzerland.
+Current KPIs (latest month): Users ${s?.utenti?.valore?.toLocaleString()} (${s?.utenti?.delta_pct}% MoM), Active wallets ${s?.wallet_attivi?.valore?.toLocaleString()}, Partners ${s?.partner_totali?.valore}, Circulating CHF ${s?.circolante_chf?.valore?.toLocaleString()}.
+
+FULL USER HISTORY: ${(users||[]).filter(d=>d.utenti).map(d => d.mese+" "+d.anno+": "+d.utenti.toLocaleString()+" users, "+(d.wallet_attivi||0).toLocaleString()+" active wallets").join(" | ")}.
+
+FULL REVENUE HISTORY: ${(revenue||[]).filter(d=>d.incassi_chf).map(d => d.mese+" "+d.anno+": CHF "+(d.incassi_chf||0).toLocaleString()+" revenue, CHF "+(d.cashback_chf||0).toLocaleString()+" cashback").join(" | ")}.
+
+FULL TRANSACTION HISTORY: ${(transactions||[]).filter(d=>d.transazioni).map(d => d.mese+" "+d.anno+": "+(d.transazioni||0).toLocaleString()).join(" | ")}.
+
+FULL DOWNLOAD HISTORY: ${(downloads||[]).filter(d=>d.download_totali).map(d => d.mese+" "+d.anno+": "+(d.download_totali||0).toLocaleString()+" total, iOS "+(d.download_ios||0).toLocaleString()+", Android "+(d.download_android||0).toLocaleString()).join(" | ")}.
 ${notes && Object.keys(notes).length > 0 ? "Monthly notes from the team: " + Object.entries(notes).map(([k,v]) => k+": "+v).join(", ") + "." : ""}
 Answer concisely and professionally in English. If you lack enough data to answer precisely, ask up to 3 clarifying questions instead of guessing.`,
   },
@@ -84,8 +92,16 @@ ${notes && Object.keys(notes).length > 0 ? "Note mensili del team: " + Object.en
 Analizza questo KPI e rispondi SOLO con JSON valido, senza markdown:
 {"headline":"una frase max 12 parole","impatto":"una frase max 20 parole","anomalia":"una frase su anomalie o null","misure":["azione 1 max 8 parole","azione 2 max 8 parole","azione 3 max 8 parole"]}
 KPI: ${label}. Dati: ${ctx}`,
-    system_prompt: (s, notes) => `Sei un analista senior di MyLugano, la piattaforma di wallet digitale e cashback della Città di Lugano.
-Dati attuali: Utenti ${s?.utenti?.valore?.toLocaleString()} (${s?.utenti?.delta_pct}% MoM), Wallet attivi ${s?.wallet_attivi?.valore?.toLocaleString()}, Partner ${s?.partner_totali?.valore}, Circolante CHF ${s?.circolante_chf?.valore?.toLocaleString()}.
+    system_prompt: (s, notes, users, revenue, transactions, downloads) => `Sei un analista senior di MyLugano, la piattaforma di wallet digitale e cashback della Città di Lugano.
+KPI attuali (ultimo mese): Utenti ${s?.utenti?.valore?.toLocaleString()} (${s?.utenti?.delta_pct}% MoM), Wallet attivi ${s?.wallet_attivi?.valore?.toLocaleString()}, Partner ${s?.partner_totali?.valore}, Circolante CHF ${s?.circolante_chf?.valore?.toLocaleString()}.
+
+STORICO COMPLETO UTENTI: ${(users||[]).filter(d=>d.utenti).map(d => d.mese+" "+d.anno+": "+d.utenti.toLocaleString()+" utenti, "+(d.wallet_attivi||0).toLocaleString()+" wallet attivi").join(" | ")}.
+
+STORICO COMPLETO RICAVI: ${(revenue||[]).filter(d=>d.incassi_chf).map(d => d.mese+" "+d.anno+": CHF "+(d.incassi_chf||0).toLocaleString()+" ricavi, CHF "+(d.cashback_chf||0).toLocaleString()+" cashback").join(" | ")}.
+
+STORICO COMPLETO TRANSAZIONI: ${(transactions||[]).filter(d=>d.transazioni).map(d => d.mese+" "+d.anno+": "+(d.transazioni||0).toLocaleString()).join(" | ")}.
+
+STORICO COMPLETO DOWNLOAD: ${(downloads||[]).filter(d=>d.download_totali).map(d => d.mese+" "+d.anno+": "+(d.download_totali||0).toLocaleString()+" totali, iOS "+(d.download_ios||0).toLocaleString()+", Android "+(d.download_android||0).toLocaleString()).join(" | ")}.
 ${notes && Object.keys(notes).length > 0 ? "Note mensili del team: " + Object.entries(notes).map(([k,v]) => k+": "+v).join(", ") + "." : ""}
 Rispondi in italiano, in modo conciso e professionale. Non usare markdown con asterischi. Se non hai dati sufficienti per rispondere con precisione, fai fino a 3 domande di chiarimento invece di fare supposizioni.`,
   }
@@ -771,7 +787,7 @@ function formatMessage(text) {
     .replace(/\n/g, '<br>');
 }
 
-function ChatBot({ summary, notes, t }) {
+function ChatBot({ summary, notes, users, revenue, transactions, downloads, t }) {
   const [messages, setMessages] = useState([{ role: "assistant", text: t.chat_intro }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -785,7 +801,7 @@ function ChatBot({ summary, notes, t }) {
     setMessages(m => [...m, { role: "user", text: userMsg }]);
     setLoading(true);
     try {
-      const reply = await callClaude(userMsg, t.system_prompt(summary, notes));
+      const reply = await callClaude(userMsg, t.system_prompt(summary, notes, users, revenue, transactions, downloads));
       setMessages(m => [...m, { role: "assistant", text: reply }]);
     } catch {
       setMessages(m => [...m, { role: "assistant", text: "Connection error. Please try again." }]);
