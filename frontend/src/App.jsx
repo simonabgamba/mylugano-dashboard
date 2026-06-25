@@ -50,13 +50,17 @@ KPI: ${label}. Data: ${ctx}`,
     system_prompt: (s, notes, users, revenue, transactions, downloads) => `You are a senior data analyst for MyLugano, the digital wallet and cashback platform of the City of Lugano, Switzerland.
 Current KPIs (latest month): Users ${s?.utenti?.valore?.toLocaleString()} (${s?.utenti?.delta_pct}% MoM), Active wallets ${s?.wallet_attivi?.valore?.toLocaleString()}, Partners ${s?.partner_totali?.valore}, Circulating CHF ${s?.circolante_chf?.valore?.toLocaleString()}.
 
-FULL USER HISTORY: ${(users||[]).filter(d=>d.utenti).map(d => d.mese+" "+d.anno+": "+d.utenti.toLocaleString()+" users, "+(d.wallet_attivi||0).toLocaleString()+" active wallets").join(" | ")}.
+USER DATA (month year | total users | active wallets):
+${(users||[]).filter(d=>d.utenti!=null&&d.utenti>0).map(d => d.mese+" "+d.anno+" | "+d.utenti+" | "+(d.wallet_attivi||0)).join("\n")}
 
-FULL REVENUE HISTORY: ${(revenue||[]).filter(d=>d.incassi_chf).map(d => d.mese+" "+d.anno+": CHF "+(d.incassi_chf||0).toLocaleString()+" revenue, CHF "+(d.cashback_chf||0).toLocaleString()+" cashback").join(" | ")}.
+REVENUE DATA (month year | revenue CHF | cashback CHF):
+${(revenue||[]).filter(d=>d.incassi_chf!=null&&d.incassi_chf>0).map(d => d.mese+" "+d.anno+" | "+d.incassi_chf+" | "+(d.cashback_chf||0)).join("\n")}
 
-FULL TRANSACTION HISTORY: ${(transactions||[]).filter(d=>d.transazioni).map(d => d.mese+" "+d.anno+": "+(d.transazioni||0).toLocaleString()).join(" | ")}.
+TRANSACTION DATA (month year | transactions):
+${(transactions||[]).filter(d=>d.transazioni!=null&&d.transazioni>0).map(d => d.mese+" "+d.anno+" | "+d.transazioni).join("\n")}
 
-FULL DOWNLOAD HISTORY: ${(downloads||[]).filter(d=>d.download_totali).map(d => d.mese+" "+d.anno+": "+(d.download_totali||0).toLocaleString()+" total, iOS "+(d.download_ios||0).toLocaleString()+", Android "+(d.download_android||0).toLocaleString()).join(" | ")}.
+DOWNLOAD DATA (month year | total | iOS | Android):
+${(downloads||[]).filter(d=>d.download_totali!=null&&d.download_totali>0).map(d => d.mese+" "+d.anno+" | "+d.download_totali+" | "+(d.download_ios||0)+" | "+(d.download_android||0)).join("\n")}
 ${notes && Object.keys(notes).length > 0 ? "Monthly notes from the team: " + Object.entries(notes).map(([k,v]) => k+": "+v).join(", ") + "." : ""}
 Answer concisely and professionally in English. If you lack enough data to answer precisely, ask up to 3 clarifying questions instead of guessing.`,
   },
@@ -95,13 +99,17 @@ KPI: ${label}. Dati: ${ctx}`,
     system_prompt: (s, notes, users, revenue, transactions, downloads) => `Sei un analista senior di MyLugano, la piattaforma di wallet digitale e cashback della Città di Lugano.
 KPI attuali (ultimo mese): Utenti ${s?.utenti?.valore?.toLocaleString()} (${s?.utenti?.delta_pct}% MoM), Wallet attivi ${s?.wallet_attivi?.valore?.toLocaleString()}, Partner ${s?.partner_totali?.valore}, Circolante CHF ${s?.circolante_chf?.valore?.toLocaleString()}.
 
-STORICO COMPLETO UTENTI: ${(users||[]).filter(d=>d.utenti).map(d => d.mese+" "+d.anno+": "+d.utenti.toLocaleString()+" utenti, "+(d.wallet_attivi||0).toLocaleString()+" wallet attivi").join(" | ")}.
+DATI UTENTI (mese anno | utenti totali | wallet attivi):
+${(users||[]).filter(d=>d.utenti!=null&&d.utenti>0).map(d => d.mese+" "+d.anno+" | "+d.utenti+" | "+(d.wallet_attivi||0)).join("\n")}
 
-STORICO COMPLETO RICAVI: ${(revenue||[]).filter(d=>d.incassi_chf).map(d => d.mese+" "+d.anno+": CHF "+(d.incassi_chf||0).toLocaleString()+" ricavi, CHF "+(d.cashback_chf||0).toLocaleString()+" cashback").join(" | ")}.
+DATI RICAVI (mese anno | ricavi CHF | cashback CHF):
+${(revenue||[]).filter(d=>d.incassi_chf!=null&&d.incassi_chf>0).map(d => d.mese+" "+d.anno+" | "+d.incassi_chf+" | "+(d.cashback_chf||0)).join("\n")}
 
-STORICO COMPLETO TRANSAZIONI: ${(transactions||[]).filter(d=>d.transazioni).map(d => d.mese+" "+d.anno+": "+(d.transazioni||0).toLocaleString()).join(" | ")}.
+DATI TRANSAZIONI (mese anno | transazioni):
+${(transactions||[]).filter(d=>d.transazioni!=null&&d.transazioni>0).map(d => d.mese+" "+d.anno+" | "+d.transazioni).join("\n")}
 
-STORICO COMPLETO DOWNLOAD: ${(downloads||[]).filter(d=>d.download_totali).map(d => d.mese+" "+d.anno+": "+(d.download_totali||0).toLocaleString()+" totali, iOS "+(d.download_ios||0).toLocaleString()+", Android "+(d.download_android||0).toLocaleString()).join(" | ")}.
+DATI DOWNLOAD (mese anno | totali | iOS | Android):
+${(downloads||[]).filter(d=>d.download_totali!=null&&d.download_totali>0).map(d => d.mese+" "+d.anno+" | "+d.download_totali+" | "+(d.download_ios||0)+" | "+(d.download_android||0)).join("\n")}
 ${notes && Object.keys(notes).length > 0 ? "Note mensili del team: " + Object.entries(notes).map(([k,v]) => k+": "+v).join(", ") + "." : ""}
 Rispondi in italiano, in modo conciso e professionale. Non usare markdown con asterischi. Se non hai dati sufficienti per rispondere con precisione, fai fino a 3 domande di chiarimento invece di fare supposizioni.`,
   }
@@ -883,10 +891,10 @@ export default function App() {
           fetch(`${API}/api/notes`).then(r => r.json()).catch(() => ({})),
         ]);
         setSummary(s);
-        setUsers(u.filter(d => d.anno >= 2021 && Number.isInteger(d.anno)));
-        setRevenue(r.filter(d => d.anno >= 2021 && Number.isInteger(d.anno)));
-        setTx(tx.filter(d => d.anno >= 2021 && Number.isInteger(d.anno)));
-        setDl(d.filter(d => d.anno >= 2021 && Number.isInteger(d.anno)));
+        setUsers(u.filter(d => d.anno >= 2021 && Number.isInteger(d.anno) && d.utenti != null));
+        setRevenue(r.filter(d => d.anno >= 2021 && Number.isInteger(d.anno) && d.incassi_chf != null));
+        setTx(tx.filter(d => d.anno >= 2021 && Number.isInteger(d.anno) && d.transazioni != null));
+        setDl(d.filter(d => d.anno >= 2021 && Number.isInteger(d.anno) && d.download_totali != null));
         setNotes(n || {});
         setSheetUrl(cfg?.sheet_url || "");
         const yrs = [...new Set(u.map(d => d.anno))].filter(y => Number.isInteger(y) && y >= 2021).sort();
