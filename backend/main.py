@@ -54,7 +54,7 @@ app.add_middleware(
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 SHEET_ID = os.environ.get("SHEET_ID", "")
-TAB_NAME = "MyLugano_General_Data"
+TAB_NAME = os.environ.get("TAB_NAME", "MyLugano_General_Data")
 
 def get_credentials_file():
     local_file = os.path.join(os.path.dirname(__file__), "..", "credentials.json")
@@ -130,6 +130,13 @@ def serie_to_list(serie, mesi_cols, anno_filter=None):
 # ─────────────────────────────────────────
 # ENDPOINTS
 # ─────────────────────────────────────────
+
+@app.get("/api/config")
+def get_config():
+    sheet_id = os.environ.get("SHEET_ID", "")
+    return {
+        "sheet_url": f"https://docs.google.com/spreadsheets/d/{sheet_id}/edit" if sheet_id else ""
+    }
 
 @app.get("/api/debug-creds")
 def debug_creds():
@@ -340,6 +347,48 @@ def get_summary():
             "partner_totali": {"valore": p_att, "delta_pct": delta(p_att, p_prec),  "prev": p_prec},
             "circolante_chf": {"valore": c_att, "delta_pct": delta(c_att, c_prec),  "prev": c_prec},
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/context")
+def get_context():
+    """Returns all sheet data as structured text for AI consumption"""
+    try:
+        df = get_dataframe()
+        if df.empty:
+            return {"context": "No data available."}
+        
+        # Row 1 = headers (KPI, Categoria, Dato, mese1, mese2, ...)
+        headers = df.iloc[0].tolist()
+        mesi_headers = headers[3:]  # columns after KPI, Categoria, Dato
+        
+        lines = []
+        lines.append("DATI COMPLETI MYLUGANO DAL GOOGLE SHEETS")
+        lines.append("Colonne: " + " | ".join(["KPI","Categoria","Dato"] + mesi_headers))
+        lines.append("")
+        
+        for idx in range(1, len(df)):
+            row = df.iloc[idx].tolist()
+            kpi = str(row[0]).strip()
+            categoria = str(row[1]).strip()
+            dato = str(row[2]).strip()
+            if not kpi and not categoria and not dato:
+                continue
+            
+            # Build only non-empty values
+            valori = []
+            for i, val in enumerate(row[3:]):
+                v = str(val).strip()
+                if v and v.lower() not in ["", "none", "nan", "0", "0.0"]:
+                    valori.append(f"{mesi_headers[i] if i < len(mesi_headers) else i}: {v}")
+            
+            if valori:
+                lines.append(f"{kpi} | {categoria} | {dato}")
+                lines.append("  " + " | ".join(valori))
+        
+        return {"context": "
+".join(lines)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
