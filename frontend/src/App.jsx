@@ -47,7 +47,7 @@ ${notes && Object.keys(notes).length > 0 ? "Team notes: " + Object.entries(notes
 Analyze this KPI and respond ONLY with valid JSON, no markdown:
 {"headline":"one sentence max 12 words","impatto":"one sentence max 20 words","anomalia":"one sentence on any anomaly or null if none","misure":["action 1 max 8 words","action 2 max 8 words","action 3 max 8 words"]}
 KPI: ${label}. Data: ${ctx}`,
-    system_prompt: (s, notes, users, revenue, transactions, downloads) => `You are a senior data analyst for MyLugano, the digital wallet and cashback platform of the City of Lugano, Switzerland.
+    system_prompt: (s, notes, sheetContext) => `You are a senior data analyst for MyLugano, the digital wallet and cashback platform of the City of Lugano, Switzerland.
 Current KPIs (latest month): Users ${s?.utenti?.valore?.toLocaleString()} (${s?.utenti?.delta_pct}% MoM), Active wallets ${s?.wallet_attivi?.valore?.toLocaleString()}, Partners ${s?.partner_totali?.valore}, Circulating CHF ${s?.circolante_chf?.valore?.toLocaleString()}.
 
 USER DATA (month year | total users | active wallets):
@@ -99,17 +99,7 @@ KPI: ${label}. Dati: ${ctx}`,
     system_prompt: (s, notes, users, revenue, transactions, downloads) => `Sei un analista senior di MyLugano, la piattaforma di wallet digitale e cashback della Città di Lugano.
 KPI attuali (ultimo mese): Utenti ${s?.utenti?.valore?.toLocaleString()} (${s?.utenti?.delta_pct}% MoM), Wallet attivi ${s?.wallet_attivi?.valore?.toLocaleString()}, Partner ${s?.partner_totali?.valore}, Circolante CHF ${s?.circolante_chf?.valore?.toLocaleString()}.
 
-DATI UTENTI (mese anno | utenti totali | wallet attivi):
-${(users||[]).filter(d=>d.utenti!=null&&d.utenti>0).map(d => d.mese+" "+d.anno+" | "+d.utenti+" | "+(d.wallet_attivi||0)).join("\n")}
-
-DATI RICAVI (mese anno | ricavi CHF | cashback CHF):
-${(revenue||[]).filter(d=>d.incassi_chf!=null&&d.incassi_chf>0).map(d => d.mese+" "+d.anno+" | "+d.incassi_chf+" | "+(d.cashback_chf||0)).join("\n")}
-
-DATI TRANSAZIONI (mese anno | transazioni):
-${(transactions||[]).filter(d=>d.transazioni!=null&&d.transazioni>0).map(d => d.mese+" "+d.anno+" | "+d.transazioni).join("\n")}
-
-DATI DOWNLOAD (mese anno | totali | iOS | Android):
-${(downloads||[]).filter(d=>d.download_totali!=null&&d.download_totali>0).map(d => d.mese+" "+d.anno+" | "+d.download_totali+" | "+(d.download_ios||0)+" | "+(d.download_android||0)).join("\n")}
+${sheetContext || ""}
 ${notes && Object.keys(notes).length > 0 ? "Note mensili del team: " + Object.entries(notes).map(([k,v]) => k+": "+v).join(", ") + "." : ""}
 Rispondi in italiano, in modo conciso e professionale. Non usare markdown con asterischi. Se non hai dati sufficienti per rispondere con precisione, fai fino a 3 domande di chiarimento invece di fare supposizioni.`,
   }
@@ -795,7 +785,7 @@ function formatMessage(text) {
     .replace(/\n/g, '<br>');
 }
 
-function ChatBot({ summary, notes, users, revenue, transactions, downloads, t }) {
+function ChatBot({ summary, notes, sheetContext, t }) {
   const [messages, setMessages] = useState([{ role: "assistant", text: t.chat_intro }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -809,7 +799,7 @@ function ChatBot({ summary, notes, users, revenue, transactions, downloads, t })
     setMessages(m => [...m, { role: "user", text: userMsg }]);
     setLoading(true);
     try {
-      const reply = await callClaude(userMsg, t.system_prompt(summary, notes, users, revenue, transactions, downloads));
+      const reply = await callClaude(userMsg, t.system_prompt(summary, notes, sheetContext));
       setMessages(m => [...m, { role: "assistant", text: reply }]);
     } catch {
       setMessages(m => [...m, { role: "assistant", text: "Connection error. Please try again." }]);
@@ -876,13 +866,14 @@ export default function App() {
   const [error, setError] = useState(null);
   const [notes, setNotes] = useState({});
   const [sheetUrl, setSheetUrl] = useState("");
+  const [sheetContext, setSheetContext] = useState("");
   const isMobile = useIsMobile();
   const t = I18N[lang];
 
   useEffect(() => {
     async function fetchAll() {
       try {
-        const [s, u, r, tx, d, n, cfg] = await Promise.all([
+        const [s, u, r, tx, d, n, cfg, ctx] = await Promise.all([
           fetch(`${API}/api/summary`).then(r => r.json()),
           fetch(`${API}/api/users`).then(r => r.json()),
           fetch(`${API}/api/revenue`).then(r => r.json()),
@@ -897,6 +888,7 @@ export default function App() {
         setDl(d.filter(d => d.anno >= 2021 && Number.isInteger(d.anno) && d.download_totali != null));
         setNotes(n || {});
         setSheetUrl(cfg?.sheet_url || "");
+        setSheetContext(ctx?.context || "");
         const yrs = [...new Set(u.map(d => d.anno))].filter(y => Number.isInteger(y) && y >= 2021).sort();
         setSelYears(yrs.slice(-2));
       } catch(e) {
