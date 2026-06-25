@@ -53,7 +53,7 @@ app.add_middleware(
 )
 
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
-SHEET_ID = "1gDvJPaOH3EJZ6-0eB9MyCOnQRxsYYcftP3LmJLzrmSg"
+SHEET_ID = os.environ.get("SHEET_ID", "")
 TAB_NAME = "MyLugano_General_Data"
 
 def get_credentials_file():
